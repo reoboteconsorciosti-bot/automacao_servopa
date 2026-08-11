@@ -13,6 +13,7 @@ load_dotenv()
 from app.routers.users import router as users_router
 from app.routers.login import router as auth_router
 from app.routers.automation import router as automation_router
+from app.routers.pdfs import router as pdfs_router
 
 app = FastAPI(
     title="Servopa Automação — Backend API",
@@ -70,6 +71,8 @@ app.include_router(users_router)
 app.include_router(auth_router)
 app.include_router(automation_router)
 app.include_router(automation_router, prefix="/api")
+app.include_router(pdfs_router)
+app.include_router(pdfs_router, prefix="/api")
 
 
 @app.get("/healthz", tags=["health"])

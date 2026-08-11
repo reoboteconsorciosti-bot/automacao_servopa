@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Play, RotateCcw } from 'lucide-react'
+import { Loader2, Play, RotateCcw, Square } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import {
@@ -58,6 +58,8 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
   const validQuotaCount = parsedQuotas.length
   const hasValidQuotas = validQuotaCount > 0
 
+  const [isStopping, setIsStopping] = React.useState(false)
+
   async function handleStart() {
     if (!consultantName.trim() || status === 'running' || !hasValidQuotas) return
     setStatus('running')
@@ -77,6 +79,19 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
     } catch (err) {
       console.error('Erro ao iniciar automação:', err)
       setStatus('error')
+    }
+  }
+
+  async function handleStop() {
+    setIsStopping(true)
+    if (timerRef.current) clearTimeout(timerRef.current)
+    try {
+      await stopAutomation()
+    } catch (err) {
+      console.error('Erro ao parar automação:', err)
+    } finally {
+      setStatus('idle')
+      setIsStopping(false)
     }
   }
 
@@ -159,15 +174,37 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
               <CardDescription>Inicie a automação com as configurações acima.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <Button
-                size="lg"
-                className="h-12 w-full text-base"
-                onClick={handleStart}
-                disabled={isRunning || !consultantName.trim() || !hasValidQuotas}
-              >
-                <Play data-icon="inline-start" />
-                {isRunning ? 'Executando...' : 'Iniciar Automação'}
-              </Button>
+              {isRunning ? (
+                <Button
+                  size="lg"
+                  variant="destructive"
+                  className="h-12 w-full text-base font-semibold transition-all hover:bg-destructive/90"
+                  onClick={handleStop}
+                  disabled={isStopping}
+                >
+                  {isStopping ? (
+                    <>
+                      <Loader2 className="size-5 animate-spin" />
+                      Encerrando navegador...
+                    </>
+                  ) : (
+                    <>
+                      <Square className="size-5 fill-current" />
+                      Parar Automação
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  className="h-12 w-full text-base"
+                  onClick={handleStart}
+                  disabled={!consultantName.trim() || !hasValidQuotas}
+                >
+                  <Play data-icon="inline-start" />
+                  Iniciar Automação
+                </Button>
+              )}
 
               <div className="rounded-lg border border-border bg-muted/30 p-4">
                 <StatusIndicator status={status} />
