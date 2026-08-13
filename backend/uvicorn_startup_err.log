@@ -1,0 +1,474 @@
+INFO:     Will watch for changes in these directories: ['C:\\Users\\Notebook Lenovo\\Downloads\\painel-servopa-consorcios\\backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [23132] using StatReload
+INFO:     Started server process [14736]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app\routers\automation.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [14736]
+INFO:     Started server process [18116]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app\routers\automation.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [18116]
+INFO:     Started server process [9464]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:49364 - "WebSocket /api/automation/live" [accepted]
+INFO:     127.0.0.1:59375 - "WebSocket /api/automation/live" [accepted]
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: xpath=//div[@class='error' and contains(text(), 'CPF/CNPJ ou senha inválidos!')] em 3s.
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:[NAVEGAÇÃO] #1 detectada -> {'t': 1786556780.718, 'snapshot': {'navStart': 1786556780335, 'navType': 'navigate', 'title': 'Consórcio Servopa', 'url': 'https://www.consorcioservopa.com.br/vendas/buscar'}}
+WARNING:root:Elemento não ficou visível: class name=error em 2s.
+WARNING:root:Elemento não ficou visível: class name=tab-switcher em 1s.
+WARNING:root:[NAVEGAÇÃO] #1 detectada -> {'t': 1786556790.932, 'snapshot': {'navStart': 1786556790540, 'navType': 'navigate', 'title': 'Consórcio Servopa', 'url': 'https://www.consorcioservopa.com.br/vendas/buscar'}}
+WARNING:root:Elemento não ficou visível: class name=error em 2s.
+WARNING:root:Elemento não ficou visível: css selector=div.message-block.error em 0.5s.
+WARNING:root:Elemento não ficou visível: xpath=//div[@class='tab-switcher']//a[text()='Fidelidade'] em 2s.
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:[NAVEGAÇÃO] #1 detectada -> {'t': 1786556801.968, 'snapshot': {'navStart': 1786556801604, 'navType': 'navigate', 'title': 'Consórcio Servopa', 'url': 'https://www.consorcioservopa.com.br/vendas/buscar'}}
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: class name=error em 2s.
+WARNING:root:Elemento não ficou visível: css selector=div.message-block.error em 0.5s.
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+ERROR:root:[CRÍTICO] Erro no fluxo de 3714,0985,3: WebDriverException: Message: Failed to decode response from marionette
+Traceback (most recent call last):
+  File "C:\Users\Notebook Lenovo\Downloads\painel-servopa-consorcios\backend\app\automation\engine.py", line 850, in run_automation_for_cota
+    if find_element(driver, *ServopaLanceLocators.LANCE_FIDELIDADE_TAB, timeout=2):
+       ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\Downloads\painel-servopa-consorcios\backend\app\automation\engine.py", line 396, in find_element
+    return WebDriverWait(driver, timeout).until(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        EC.visibility_of_element_located((by, value))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\support\wait.py", line 112, in until
+    value = method(self._driver)
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\support\expected_conditions.py", line 188, in _predicate
+    return _element_if_visible(driver.find_element(*locator))
+                               ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 899, in find_element
+    return self.execute(Command.FIND_ELEMENT, {"using": by, "value": value})["value"]
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 492, in execute
+    self.error_handler.check_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\errorhandler.py", line 232, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.WebDriverException: Message: Failed to decode response from marionette
+
+WARNING:app.routers.automation:[LIVE VIEW] Falha ao capturar tela: Message: Tried to run command without establishing a connection; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+
+ERROR:root:Não foi possível salvar screenshot: Message: Tried to run command without establishing a connection; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+
+ERROR:root:Não foi possível salvar HTML: Message: Tried to run command without establishing a connection; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+
+ERROR:root:[CRÍTICO] Erro no fluxo de 1553,3376,3: InvalidSessionIdException: Message: Tried to run command without establishing a connection; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+Traceback (most recent call last):
+  File "C:\Users\Notebook Lenovo\Downloads\painel-servopa-consorcios\backend\app\automation\engine.py", line 767, in run_automation_for_cota
+    _navegar_e_buscar_cota(driver, cota_info)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\Downloads\painel-servopa-consorcios\backend\app\automation\engine.py", line 624, in _navegar_e_buscar_cota
+    if "vendas/buscar" not in driver.current_url:
+                              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 626, in current_url
+    return self.execute(Command.GET_CURRENT_URL)["value"]
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 492, in execute
+    self.error_handler.check_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\errorhandler.py", line 232, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.InvalidSessionIdException: Message: Tried to run command without establishing a connection; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+
+ERROR:root:Não foi possível salvar screenshot: Message: Tried to run command without establishing a connection; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+
+ERROR:root:Não foi possível salvar HTML: Message: Tried to run command without establishing a connection; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+
+WARNING:app.routers.automation:[LIVE VIEW] Falha ao capturar tela: Message: Tried to run command without establishing a connection; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+
+INFO:     127.0.0.1:51647 - "WebSocket /api/automation/live" [accepted]
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: xpath=//div[@class='error' and contains(text(), 'CPF/CNPJ ou senha inválidos!')] em 3s.
+WARNING:root:[NAVEGAÇÃO] #1 detectada -> {'t': 1786557425.359, 'snapshot': {'navStart': 1786557424992, 'navType': 'navigate', 'title': 'Consórcio Servopa', 'url': 'https://www.consorcioservopa.com.br/vendas/buscar'}}
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: class name=error em 2s.
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: css selector=div.message-block.error em 0.5s.
+ERROR:root:[CRÍTICO] Erro no fluxo de 1531,0385,9: WebDriverException: Message: Failed to decode response from marionette
+Traceback (most recent call last):
+  File "C:\Users\Notebook Lenovo\Downloads\painel-servopa-consorcios\backend\app\automation\engine.py", line 850, in run_automation_for_cota
+    if find_element(driver, *ServopaLanceLocators.LANCE_FIDELIDADE_TAB, timeout=2):
+       ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\Downloads\painel-servopa-consorcios\backend\app\automation\engine.py", line 396, in find_element
+    return WebDriverWait(driver, timeout).until(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        EC.visibility_of_element_located((by, value))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\support\wait.py", line 112, in until
+    value = method(self._driver)
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\support\expected_conditions.py", line 188, in _predicate
+    return _element_if_visible(driver.find_element(*locator))
+                               ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 899, in find_element
+    return self.execute(Command.FIND_ELEMENT, {"using": by, "value": value})["value"]
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 492, in execute
+    self.error_handler.check_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\errorhandler.py", line 232, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.WebDriverException: Message: Failed to decode response from marionette
+
+ERROR:root:Não foi possível salvar screenshot: Message: Tried to run command without establishing a connection; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+
+ERROR:root:Não foi possível salvar HTML: Message: Tried to run command without establishing a connection; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+
+WARNING:app.routers.automation:[LIVE VIEW] Falha ao capturar tela: Message: Tried to run command without establishing a connection; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+
+WARNING:app.routers.automation:[LIVE VIEW] Falha ao capturar tela: Message: Tried to run command without establishing a connection; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+
+WARNING:urllib3.connectionpool:Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=51648): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/2d7c31e9-84be-4cef-b761-970e21f99774/screenshot
+WARNING:urllib3.connectionpool:Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=51648): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/2d7c31e9-84be-4cef-b761-970e21f99774/screenshot
+WARNING:urllib3.connectionpool:Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=51648): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/2d7c31e9-84be-4cef-b761-970e21f99774/screenshot
+WARNING:app.routers.automation:[LIVE VIEW] Falha ao capturar tela: HTTPConnectionPool(host='localhost', port=51648): Max retries exceeded with url: /session/2d7c31e9-84be-4cef-b761-970e21f99774/screenshot (Caused by NewConnectionError("HTTPConnection(host='localhost', port=51648): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+INFO:     127.0.0.1:60291 - "WebSocket /api/automation/live" [accepted]
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: xpath=//div[@class='error' and contains(text(), 'CPF/CNPJ ou senha inválidos!')] em 3s.
+WARNING:root:[NAVEGAÇÃO] #1 detectada -> {'t': 1786558675.755, 'snapshot': {'navStart': 1786558675387, 'navType': 'navigate', 'title': 'Consórcio Servopa', 'url': 'https://www.consorcioservopa.com.br/vendas/buscar'}}
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: class name=error em 2s.
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: class name=tab-switcher em 1s.
+WARNING:root:[NAVEGAÇÃO] #1 detectada -> {'t': 1786558685.913, 'snapshot': {'navStart': 1786558685574, 'navType': 'navigate', 'title': 'Consórcio Servopa', 'url': 'https://www.consorcioservopa.com.br/vendas/buscar'}}
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: class name=error em 2s.
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: css selector=div.message-block.error em 0.5s.
+WARNING:root:Elemento não ficou visível: xpath=//div[@class='tab-switcher']//a[text()='Fidelidade'] em 2s.
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: id=num_protocolo_ant em 3s.
+WARNING:urllib3.connectionpool:Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=60292): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/056c707b-8051-42cc-ac80-e053839072b9/screenshot
+WARNING:urllib3.connectionpool:Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=60292): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/056c707b-8051-42cc-ac80-e053839072b9/screenshot
+WARNING:urllib3.connectionpool:Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=60292): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/056c707b-8051-42cc-ac80-e053839072b9/screenshot
+WARNING:app.routers.automation:[LIVE VIEW] Falha ao capturar tela: HTTPConnectionPool(host='localhost', port=60292): Max retries exceeded with url: /session/056c707b-8051-42cc-ac80-e053839072b9/screenshot (Caused by NewConnectionError("HTTPConnection(host='localhost', port=60292): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+WARNING:  StatReload detected changes in 'app\automation\engine.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [9464]
+INFO:     Started server process [15064]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app\automation\engine.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for connections to close. (CTRL+C to force quit)
+INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [15064]
+INFO:     Started server process [16876]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app\routers\automation.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [16876]
+INFO:     Started server process [10812]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+ERROR:root:Falha durante o login.
+WARNING:urllib3.connectionpool:Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=58504): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/2d1c69ad-016f-4677-8624-922a7ede6614/element
+WARNING:urllib3.connectionpool:Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=58504): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/2d1c69ad-016f-4677-8624-922a7ede6614/element
+WARNING:urllib3.connectionpool:Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=58504): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/2d1c69ad-016f-4677-8624-922a7ede6614/element
+ERROR:app.routers.automation:[AUTOMAÇÃO ERRO] Falha durante a execução da automação: HTTPConnectionPool(host='localhost', port=58504): Max retries exceeded with url: /session/2d1c69ad-016f-4677-8624-922a7ede6614/element (Caused by NewConnectionError("HTTPConnection(host='localhost', port=58504): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+Traceback (most recent call last):
+  File "C:\Users\Notebook Lenovo\Downloads\painel-servopa-consorcios\backend\app\automation\engine.py", line 593, in login
+    login_error = find_element(driver, *ServopaLocators.LOGIN_ERROR_MESSAGE, timeout=3)
+  File "C:\Users\Notebook Lenovo\Downloads\painel-servopa-consorcios\backend\app\automation\engine.py", line 396, in find_element
+    return WebDriverWait(driver, timeout).until(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        EC.visibility_of_element_located((by, value))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\support\wait.py", line 112, in until
+    value = method(self._driver)
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\support\expected_conditions.py", line 188, in _predicate
+    return _element_if_visible(driver.find_element(*locator))
+                               ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 899, in find_element
+    return self.execute(Command.FIND_ELEMENT, {"using": by, "value": value})["value"]
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 492, in execute
+    self.error_handler.check_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\errorhandler.py", line 232, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.InvalidSessionIdException: Message: Tried to run command without establishing a connection; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\util\connection.py", line 85, in create_connection
+    raise err
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\util\connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\connectionpool.py", line 788, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\connectionpool.py", line 493, in _make_request
+    conn.request(
+    ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<6 lines>...
+        enforce_content_length=enforce_content_length,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\connection.py", line 500, in request
+    self.endheaders()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\http\client.py", line 1362, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\http\client.py", line 1122, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\http\client.py", line 1066, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\connection.py", line 331, in connect
+    self.sock = self._new_conn()
+                ~~~~~~~~~~~~~~^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\connection.py", line 219, in _new_conn
+    raise NewConnectionError(
+        self, f"Failed to establish a new connection: {e}"
+    ) from e
+urllib3.exceptions.NewConnectionError: HTTPConnection(host='localhost', port=58504): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Notebook Lenovo\Downloads\painel-servopa-consorcios\backend\app\routers\automation.py", line 88, in _run_browser_automation
+    login(_current_driver)
+    ~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\Downloads\painel-servopa-consorcios\backend\app\automation\engine.py", line 612, in login
+    check_for_captcha(driver)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\Users\Notebook Lenovo\Downloads\painel-servopa-consorcios\backend\app\automation\engine.py", line 301, in check_for_captcha
+    WebDriverWait(driver, 2).until(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        EC.visibility_of_element_located(ServopaLocators.CAPTCHA)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\support\wait.py", line 112, in until
+    value = method(self._driver)
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\support\expected_conditions.py", line 188, in _predicate
+    return _element_if_visible(driver.find_element(*locator))
+                               ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 899, in find_element
+    return self.execute(Command.FIND_ELEMENT, {"using": by, "value": value})["value"]
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 489, in execute
+    response = cast(RemoteConnection, self.command_executor).execute(driver_command, params)
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\remote_connection.py", line 407, in execute
+    return self._request(command_info[0], url, body=data)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\remote_connection.py", line 431, in _request
+    response = self._conn.request(method, url, body=body, headers=headers, timeout=self._client_config.timeout)
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\_request_methods.py", line 143, in request
+    return self.request_encode_body(
+           ~~~~~~~~~~~~~~~~~~~~~~~~^
+        method, url, fields=fields, headers=headers, **urlopen_kw
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\_request_methods.py", line 278, in request_encode_body
+    return self.urlopen(method, url, **extra_kw)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\poolmanager.py", line 457, in urlopen
+    response = conn.urlopen(method, u.request_uri, **kw)
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\connectionpool.py", line 872, in urlopen
+    return self.urlopen(
+           ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<13 lines>...
+        **response_kw,
+        ^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\connectionpool.py", line 872, in urlopen
+    return self.urlopen(
+           ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<13 lines>...
+        **response_kw,
+        ^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\connectionpool.py", line 872, in urlopen
+    return self.urlopen(
+           ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<13 lines>...
+        **response_kw,
+        ^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\connectionpool.py", line 842, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "C:\Users\Notebook Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\urllib3\util\retry.py", line 543, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='localhost', port=58504): Max retries exceeded with url: /session/2d1c69ad-016f-4677-8624-922a7ede6614/element (Caused by NewConnectionError("HTTPConnection(host='localhost', port=58504): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+ERROR:app.routers.automation:[AUTOMAÇÃO ERRO] O navegador não pôde ser iniciado.
+WARNING:  StatReload detected changes in 'app\automation\engine.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [10812]
+INFO:     Started server process [21128]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app\automation\engine.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [21128]
+INFO:     Started server process [23436]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app\routers\pdfs.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [23436]
+INFO:     Started server process [20624]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app\routers\pdfs.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [20624]
+INFO:     Started server process [13572]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:64744 - "WebSocket /api/automation/live" [accepted]
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: xpath=//div[@class='error' and contains(text(), 'CPF/CNPJ ou senha inválidos!')] em 3s.
+WARNING:root:[NAVEGAÇÃO] #1 detectada -> {'t': 1786563101.67, 'snapshot': {'navStart': 1786563101302, 'navType': 'navigate', 'title': 'Consórcio Servopa', 'url': 'https://www.consorcioservopa.com.br/vendas/buscar'}}
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: class name=error em 2s.
+WARNING:root:Elemento não ficou visível: css selector=div.message-block.error em 0.5s.
+WARNING:app.routers.automation:[LIVE VIEW] Falha ao capturar tela: Message: WebDriver session does not exist, or is not active; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+Stacktrace:
+RemoteError@chrome://remote/content/shared/RemoteError.sys.mjs:8:8
+WebDriverError@chrome://remote/content/shared/webdriver/Errors.sys.mjs:169:5
+InvalidSessionIDError@chrome://remote/content/shared/webdriver/Errors.sys.mjs:439:5
+assert.that/<@chrome://remote/content/shared/webdriver/Assert.sys.mjs:581:13
+assert.session@chrome://remote/content/shared/webdriver/Assert.sys.mjs:38:4
+dispatch@chrome://remote/content/marionette/server.sys.mjs:311:19
+execute@chrome://remote/content/marionette/server.sys.mjs:289:16
+onPacket/<@chrome://remote/content/marionette/server.sys.mjs:262:20
+onPacket@chrome://remote/content/marionette/server.sys.mjs:263:9
+_onJSONObjectReady/<@chrome://remote/content/marionette/transport.sys.mjs:494:20
+
+WARNING:urllib3.connectionpool:Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=64745): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/1f859d2b-8f85-4ebf-9c2a-89c8d70cad35/screenshot
+WARNING:urllib3.connectionpool:Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=64745): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/1f859d2b-8f85-4ebf-9c2a-89c8d70cad35/screenshot
+WARNING:urllib3.connectionpool:Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=64745): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/1f859d2b-8f85-4ebf-9c2a-89c8d70cad35/screenshot
+WARNING:app.routers.automation:[LIVE VIEW] Falha ao capturar tela: HTTPConnectionPool(host='localhost', port=64745): Max retries exceeded with url: /session/1f859d2b-8f85-4ebf-9c2a-89c8d70cad35/screenshot (Caused by NewConnectionError("HTTPConnection(host='localhost', port=64745): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+INFO:     127.0.0.1:63190 - "WebSocket /api/automation/live" [accepted]
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: xpath=//div[@class='error' and contains(text(), 'CPF/CNPJ ou senha inválidos!')] em 3s.
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:[NAVEGAÇÃO] #1 detectada -> {'t': 1786563954.29, 'snapshot': {'navStart': 1786563953898, 'navType': 'navigate', 'title': 'Consórcio Servopa', 'url': 'https://www.consorcioservopa.com.br/vendas/buscar'}}
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: class name=error em 2s.
+WARNING:root:Elemento não ficou visível: css selector=div.message-block.error em 0.5s.
+WARNING:root:Elemento não ficou visível: xpath=//div[@class='tab-switcher']//a[text()='Fidelidade'] em 2s.
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:[NAVEGAÇÃO] #1 detectada -> {'t': 1786563978.505, 'snapshot': {'navStart': 1786563978162, 'navType': 'navigate', 'title': 'Consórcio Servopa', 'url': 'https://www.consorcioservopa.com.br/vendas/buscar'}}
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:root:Elemento não ficou visível: class name=error em 2s.
+WARNING:root:Elemento não ficou visível: css selector=div.message-block.error em 0.5s.
+WARNING:root:Elemento não ficou visível: xpath=//div[@class='tab-switcher']//a[text()='Fidelidade'] em 2s.
+WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: localhost. Connection pool size: 1
+WARNING:app.routers.automation:[LIVE VIEW] Falha ao capturar tela: Message: WebDriver session does not exist, or is not active; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+Stacktrace:
+RemoteError@chrome://remote/content/shared/RemoteError.sys.mjs:8:8
+WebDriverError@chrome://remote/content/shared/webdriver/Errors.sys.mjs:169:5
+InvalidSessionIDError@chrome://remote/content/shared/webdriver/Errors.sys.mjs:439:5
+assert.that/<@chrome://remote/content/shared/webdriver/Assert.sys.mjs:581:13
+assert.session@chrome://remote/content/shared/webdriver/Assert.sys.mjs:38:4
+dispatch@chrome://remote/content/marionette/server.sys.mjs:311:19
+execute@chrome://remote/content/marionette/server.sys.mjs:289:16
+onPacket/<@chrome://remote/content/marionette/server.sys.mjs:262:20
+onPacket@chrome://remote/content/marionette/server.sys.mjs:263:9
+_onJSONObjectReady/<@chrome://remote/content/marionette/transport.sys.mjs:494:20
+
+WARNING:urllib3.connectionpool:Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=55321): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/9ee30d24-6472-49c5-ae52-a344c58d541f/screenshot
+WARNING:urllib3.connectionpool:Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=55321): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/9ee30d24-6472-49c5-ae52-a344c58d541f/screenshot
+WARNING:urllib3.connectionpool:Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=55321): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente")': /session/9ee30d24-6472-49c5-ae52-a344c58d541f/screenshot
+WARNING:app.routers.automation:[LIVE VIEW] Falha ao capturar tela: HTTPConnectionPool(host='localhost', port=55321): Max retries exceeded with url: /session/9ee30d24-6472-49c5-ae52-a344c58d541f/screenshot (Caused by NewConnectionError("HTTPConnection(host='localhost', port=55321): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+WARNING:  StatReload detected changes in 'app\routers\automation.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for connections to close. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [13572]
+INFO:     Started server process [14500]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:root:Elemento não ficou visível: xpath=//div[@class='error' and contains(text(), 'CPF/CNPJ ou senha inválidos!')] em 3s.
+WARNING:root:Botão de Logout NÃO visível após login. Possível falha ou redirecionamento inesperado.
+WARNING:  StatReload detected changes in 'app\routers\pdfs.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [14500]
+INFO:     Started server process [19476]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.

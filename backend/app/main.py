@@ -70,9 +70,7 @@ async def catch_all_exception_handler(request: Request, exc: Exception) -> JSONR
 app.include_router(users_router)
 app.include_router(auth_router)
 app.include_router(automation_router)
-app.include_router(automation_router, prefix="/api")
 app.include_router(pdfs_router)
-app.include_router(pdfs_router, prefix="/api")
 
 
 @app.get("/healthz", tags=["health"])

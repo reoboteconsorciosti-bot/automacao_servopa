@@ -1,48 +1,25 @@
-"""
-Router de PDFs gerados pela automação.
+"""Router de PDFs gerados pela automação.
 =======================================
-Sem tabela no banco por enquanto: a lista é montada varrendo diretamente a
-pasta `Lances/{consultor}/*.pdf` em disco (mesma pasta onde `engine.py` salva
-os comprovantes de lance já renomeados). Simples e sempre reflete o estado
-real do sistema de arquivos, ao custo de não guardar histórico de execuções
-que não geraram PDF (erros, cotas puladas etc.).
+Os PDFs são persistidos diretamente no Postgres (tabela `pdf_documents`,
+coluna `content` em bytea) por `_save_pdf_to_db` em `routers/automation.py`,
+logo após `run_automation_for_cota` retornar sucesso. Este router lista e
+serve o conteúdo binário a partir do banco — não depende mais do sistema de
+arquivos, então os PDFs sobrevivem a reinícios/deploys que limpem o disco.
 """
 
-import base64
+import io
+import zipfile
+from collections import Counter
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import List
 
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel
 
-from app.automation.engine import LANCES_BASE_DIR
+from app.database import SessionLocal
+from app.models.pdf_document import PdfDocument
 
-router = APIRouter(prefix="/pdfs", tags=["pdfs"])
-
-# Diretório base do backend (pai de 'app')
-_BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
-# Subpastas que não são consultores (usadas para artefatos de erro/depuração)
-_IGNORED_DIRS = {"Erros", "Conflitos", "_DEBUG_NAV"}
-
-
-def _lances_root() -> Path:
-    root = Path(LANCES_BASE_DIR)
-    if not root.is_absolute():
-        root = (_BASE_DIR / root).resolve()
-    return root
-
-
-def _encode_id(rel_path: str) -> str:
-    """Codifica o caminho relativo do PDF (dentro de Lances/) num id opaco e seguro para URL."""
-    return base64.urlsafe_b64encode(rel_path.encode("utf-8")).decode("ascii").rstrip("=")
-
-
-def _decode_id(pdf_id: str) -> str:
-    padding = "=" * (-len(pdf_id) % 4)
-    return base64.urlsafe_b64decode((pdf_id + padding).encode("ascii")).decode("utf-8")
+router = APIRouter(prefix="/api/pdfs", tags=["pdfs"])
 
 
 class GeneratedPdfOut(BaseModel):
@@ -55,51 +32,91 @@ class GeneratedPdfOut(BaseModel):
 
 @router.get("", response_model=List[GeneratedPdfOut])
 def list_pdfs() -> List[GeneratedPdfOut]:
-    root = _lances_root()
-    if not root.exists():
-        return []
-
-    results: List[GeneratedPdfOut] = []
-    for consultor_dir in sorted(p for p in root.iterdir() if p.is_dir()):
-        if consultor_dir.name in _IGNORED_DIRS:
-            continue
-        for pdf_file in sorted(consultor_dir.glob("*.pdf")):
-            rel_path = pdf_file.relative_to(root).as_posix()
-            mtime = datetime.fromtimestamp(pdf_file.stat().st_mtime, tz=timezone.utc)
-            pdf_id = _encode_id(rel_path)
-            results.append(
-                GeneratedPdfOut(
-                    id=pdf_id,
-                    fileName=pdf_file.name,
-                    consultantName=consultor_dir.name,
-                    createdAt=mtime.isoformat(),
-                    url=f"/pdfs/{pdf_id}/download",
-                )
+    db = SessionLocal()
+    try:
+        records = db.query(PdfDocument).order_by(PdfDocument.created_at.desc()).all()
+        return [
+            GeneratedPdfOut(
+                id=str(r.id),
+                fileName=r.file_name,
+                consultantName=r.consultant_name,
+                createdAt=r.created_at.astimezone(timezone.utc).isoformat() if r.created_at else "",
+                url=f"/api/pdfs/{r.id}/download",
             )
+            for r in records
+        ]
+    finally:
+        db.close()
 
-    results.sort(key=lambda p: p.createdAt, reverse=True)
-    return results
+
+@router.get("/download-all")
+def download_all_pdfs() -> Response:
+    """Empacota todos os PDFs salvos no banco num único .zip para download em massa."""
+    db = SessionLocal()
+    try:
+        records = db.query(PdfDocument).order_by(PdfDocument.created_at.desc()).all()
+        if not records:
+            raise HTTPException(status_code=404, detail="Nenhum PDF encontrado para baixar.")
+
+        buffer = io.BytesIO()
+        nome_contagem: Counter[str] = Counter()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for r in records:
+                nome = r.file_name or f"pdf-{r.id}.pdf"
+                nome_contagem[nome] += 1
+                # Evita sobrescrever arquivos com nomes repetidos dentro do zip
+                if nome_contagem[nome] > 1:
+                    base, _, ext = nome.rpartition(".")
+                    nome = f"{base or nome} ({nome_contagem[nome]}).{ext or 'pdf'}"
+                zip_file.writestr(nome, r.content)
+        buffer.seek(0)
+
+        zip_filename = f"pdfs-servopa-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.zip"
+        return Response(
+            content=buffer.getvalue(),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f'attachment; filename="{zip_filename}"',
+            },
+        )
+    finally:
+        db.close()
 
 
 @router.get("/{pdf_id}/download")
-def download_pdf(pdf_id: str) -> FileResponse:
-    root = _lances_root().resolve()
+def download_pdf(pdf_id: str, download: bool = Query(False)) -> Response:
+    if not pdf_id.isdigit():
+        raise HTTPException(status_code=400, detail="Identificador de PDF inválido.")
+
+    db = SessionLocal()
     try:
-        rel_path = _decode_id(pdf_id)
-    except Exception:
+        record = db.query(PdfDocument).filter(PdfDocument.id == int(pdf_id)).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="PDF não encontrado.")
+
+        disposition = "attachment" if download else "inline"
+        return Response(
+            content=record.content,
+            media_type=record.content_type or "application/pdf",
+            headers={
+                "Content-Disposition": f'{disposition}; filename="{record.file_name}"',
+            },
+        )
+    finally:
+        db.close()
+
+
+@router.delete("/{pdf_id}", status_code=204)
+def delete_pdf(pdf_id: str) -> None:
+    if not pdf_id.isdigit():
         raise HTTPException(status_code=400, detail="Identificador de PDF inválido.")
 
-    file_path = (root / rel_path).resolve()
-
-    # Proteção contra path traversal: o caminho final precisa estar dentro de `root`.
-    if root not in file_path.parents and file_path != root:
-        raise HTTPException(status_code=400, detail="Identificador de PDF inválido.")
-
-    if not file_path.is_file() or file_path.suffix.lower() != ".pdf":
-        raise HTTPException(status_code=404, detail="PDF não encontrado.")
-
-    return FileResponse(
-        path=str(file_path),
-        media_type="application/pdf",
-        filename=file_path.name,
-    )
+    db = SessionLocal()
+    try:
+        record = db.query(PdfDocument).filter(PdfDocument.id == int(pdf_id)).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="PDF não encontrado.")
+        db.delete(record)
+        db.commit()
+    finally:
+        db.close()

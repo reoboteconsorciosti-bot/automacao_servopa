@@ -306,25 +306,43 @@ def check_for_captcha(driver):
         pass
 
 
+def _listar_pdfs_recursivo(download_path):
+    """Varre `download_path` e subpastas em busca de arquivos .pdf concluídos.
+
+    Necessário porque o site pode sugerir um nome de arquivo com um caminho
+    embutido (ex: Content-Disposition contendo "Lances/arquivo.pdf"), o que
+    faz o Firefox criar subpastas dentro da pasta de download configurada.
+    Retorna caminhos RELATIVOS a `download_path` (podem incluir subpasta).
+    """
+    encontrados = []
+    for raiz, _dirs, arquivos in os.walk(download_path):
+        for nome in arquivos:
+            if nome.endswith(".pdf") and not nome.endswith(".part"):
+                caminho_absoluto = os.path.join(raiz, nome)
+                encontrados.append(os.path.relpath(caminho_absoluto, download_path))
+    return encontrados
+
+
 def aguardar_download_concluir(download_path, timeout=90):
-    """Aguarda a conclusão do download de um PDF verificando estabilidade do tamanho."""
+    """Aguarda a conclusão do download de um PDF verificando estabilidade do tamanho.
+
+    Busca recursivamente dentro de `download_path`. Retorna o caminho RELATIVO
+    do arquivo (pode incluir subpasta) para uso com os.path.join(download_path, ...).
+    """
     if not download_path:
         raise ValueError(
             "download_path vazio — DOWNLOAD_DIR não está configurado (.env) ou não "
             "foi propagado corretamente até esta função."
         )
-    logging.info(f"Monitorando pasta de downloads: {download_path}")
+    logging.info(f"Monitorando pasta de downloads (recursivo): {download_path}")
     start_time = time.time()
     time.sleep(2)
     while time.time() - start_time < timeout:
-        files = [
-            f for f in os.listdir(download_path)
-            if f.endswith(".pdf") and not f.endswith(".part")
-        ]
-        if files:
-            pdf_file = files[0]
-            file_path = os.path.join(download_path, pdf_file)
-            logging.info(f"Arquivo '{pdf_file}' encontrado. Verificando estabilidade...")
+        arquivos = _listar_pdfs_recursivo(download_path)
+        if arquivos:
+            pdf_rel = arquivos[0]
+            file_path = os.path.join(download_path, pdf_rel)
+            logging.info(f"Arquivo '{pdf_rel}' encontrado. Verificando estabilidade...")
             last_size, stable_count = -1, 0
             while time.time() - start_time < timeout:
                 try:
@@ -332,8 +350,8 @@ def aguardar_download_concluir(download_path, timeout=90):
                     if current_size == last_size and current_size > 0:
                         stable_count += 1
                         if stable_count >= 3:
-                            logging.info(f"Download de '{pdf_file}' concluído e estável.")
-                            return pdf_file
+                            logging.info(f"Download de '{pdf_rel}' concluído e estável.")
+                            return pdf_rel
                     else:
                         stable_count = 0
                     last_size = current_size
@@ -341,13 +359,16 @@ def aguardar_download_concluir(download_path, timeout=90):
                     time.sleep(1)
                     continue
                 time.sleep(1)
-            raise TimeoutException(f"Timeout aguardando estabilização de '{pdf_file}'.")
+            raise TimeoutException(f"Timeout aguardando estabilização de '{pdf_rel}'.")
         time.sleep(1)
     raise TimeoutException("Nenhum PDF apareceu na pasta de downloads.")
 
 
 def aguardar_pdf_aparecer(download_path, timeout=4):
-    """Verifica rapidamente se algum PDF apareceu na pasta. Retorna nome ou None."""
+    """Verifica rapidamente (recursivo) se algum PDF apareceu na pasta.
+
+    Retorna o caminho RELATIVO (pode incluir subpasta) ou None.
+    """
     if not download_path:
         raise ValueError(
             "download_path vazio — DOWNLOAD_DIR não está configurado (.env) ou não "
@@ -356,13 +377,10 @@ def aguardar_pdf_aparecer(download_path, timeout=4):
     logging.info(f"Verificação rápida por PDF (até {timeout}s) em: {download_path}")
     start = time.time()
     while time.time() - start < timeout:
-        files = [
-            f for f in os.listdir(download_path)
-            if f.endswith(".pdf") and not f.endswith(".part")
-        ]
-        if files:
-            logging.info(f"PDF detectado rapidamente: {files[0]}")
-            return files[0]
+        arquivos = _listar_pdfs_recursivo(download_path)
+        if arquivos:
+            logging.info(f"PDF detectado rapidamente: {arquivos[0]}")
+            return arquivos[0]
         time.sleep(0.3)
     return None
 
@@ -493,6 +511,61 @@ def type_text_and_verify(driver, by, value, text, timeout=3, retries=3, delay=0.
 
     logging.error(f"Não foi possível confirmar o preenchimento de {value}. Último erro: {last_error}")
     return False
+
+
+def tratar_visualizador_pdf_se_necessario(driver, timeout=4):
+    """Se o site, ao invés de baixar o comprovante sozinho, abriu o PDF no
+    visualizador interno do Firefox (PDF.js) — seja em nova aba ou na mesma
+    aba — detecta isso e clica no botão "Salvar" da barra de ferramentas
+    (`downloadButton`) para forçar o download normal do navegador.
+
+    Retorna True se um visualizador PDF.js foi detectado e tratado (indepen-
+    dente do clique ter funcionado), False se nada foi detectado.
+    """
+    original_handle = driver.current_window_handle
+    original_handles = set(driver.window_handles)
+
+    def _viewer_presente(d):
+        return find_element(d, *ServopaLanceLocators.PDF_VIEWER_TOOLBAR, timeout=1) is not None
+
+    # Aguarda uma nova aba abrir OU o visualizador aparecer na aba atual
+    nova_aba_handle = None
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        extras = [h for h in driver.window_handles if h not in original_handles]
+        if extras:
+            nova_aba_handle = extras[-1]
+            break
+        if _viewer_presente(driver):
+            break
+        time.sleep(0.2)
+
+    tratou = False
+    if nova_aba_handle:
+        logging.info("[PDF VIEWER] Nova aba detectada; verificando se é o visualizador PDF.js...")
+        driver.switch_to.window(nova_aba_handle)
+        if _viewer_presente(driver):
+            logging.info("[PDF VIEWER] Confirmado na nova aba. Clicando em 'Salvar'...")
+            click_element(driver, *ServopaLanceLocators.PDF_VIEWER_DOWNLOAD_BUTTON, timeout=3)
+            time.sleep(1)
+            tratou = True
+        try:
+            driver.close()
+        except Exception as e:
+            logging.warning(f"[PDF VIEWER] Falha ao fechar aba extra: {e}")
+        driver.switch_to.window(original_handle)
+    elif _viewer_presente(driver):
+        logging.info("[PDF VIEWER] Visualizador detectado na mesma aba. Clicando em 'Salvar'...")
+        click_element(driver, *ServopaLanceLocators.PDF_VIEWER_DOWNLOAD_BUTTON, timeout=3)
+        time.sleep(1)
+        tratou = True
+        try:
+            driver.back()
+            remover_loading(driver)
+        except Exception as e:
+            logging.warning(f"[PDF VIEWER] Falha ao voltar após o download: {e}")
+
+    return tratou
 
 
 # ---------------------------------------------------------------------------
@@ -681,8 +754,10 @@ def _navegar_e_buscar_cota(driver, cota_info):
 def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
     """Orquestra o fluxo completo para uma única cota.
 
-    Retorna: (status, mensagem)
+    Retorna: (status, mensagem, caminho_pdf)
     status ∈ {'SUCESSO', 'ERRO_BENIGNO', 'ERRO_CRITICO'}
+    caminho_pdf é o caminho absoluto do PDF salvo em disco quando status == 'SUCESSO',
+    ou None nos demais casos.
     """
     download_dir = download_dir or DOWNLOAD_DIR
     grupo = cota_info["grupo"]
@@ -709,7 +784,7 @@ def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
                 os.path.join(LANCES_BASE_DIR, consultor, "Erros"),
                 f"DEBUG-ZERO-ROWS-{cota_info['original'].replace(',', '-')}",
             )
-            return "ERRO_BENIGNO", "Cota não encontrada na busca."
+            return "ERRO_BENIGNO", "Cota não encontrada na busca.", None
 
         cota_ativa = False
         for i, row in enumerate(rows):
@@ -732,7 +807,7 @@ def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
                 break
 
         if not cota_ativa:
-            return "ERRO_BENIGNO", "Nenhuma cota com status 'ATIVO' encontrada."
+            return "ERRO_BENIGNO", "Nenhuma cota com status 'ATIVO' encontrada.", None
 
         remover_loading(driver)
         logging.info("Abrindo página de lances pela URL...")
@@ -740,7 +815,7 @@ def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
             driver.get(SERVOPA_LANCES_URL)
         except WebDriverException as nav_e:
             logging.error(f"Falha ao navegar para página de lances: {nav_e}")
-            return "ERRO_CRITICO", f"Navegação falhou: {nav_e}"
+            return "ERRO_CRITICO", f"Navegação falhou: {nav_e}", None
 
         check_for_captcha(driver)
 
@@ -759,10 +834,10 @@ def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
                 error_text = (error_block.text or "").replace("Erro", "").strip()
                 logging.info(f"Erro de negócio na página de lances: '{error_text}'")
                 if "contemplada" in error_text.lower():
-                    return "ERRO_BENIGNO", "Cota já está contemplada."
+                    return "ERRO_BENIGNO", "Cota já está contemplada.", None
                 if "cancelado" in error_text.lower():
-                    return "ERRO_BENIGNO", "Extrato da cota está cancelado."
-                return "ERRO_BENIGNO", f"Erro na página de lances: {error_text}"
+                    return "ERRO_BENIGNO", "Extrato da cota está cancelado.", None
+                return "ERRO_BENIGNO", f"Erro na página de lances: {error_text}", None
 
             logging.info("Página de lances carregada com sucesso.")
         except TimeoutException:
@@ -772,10 +847,10 @@ def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
                 os.path.join(LANCES_BASE_DIR, consultor, "Erros"),
                 f"ERRO-{cota_info['original'].replace(',', '-')}-lances-load",
             )
-            return "ERRO_CRITICO", "Página de lances não carregou corretamente."
+            return "ERRO_CRITICO", "Página de lances não carregou corretamente.", None
 
         if find_element(driver, *ServopaLanceLocators.LANCE_FIDELIDADE_TAB, timeout=2):
-            return "ERRO_BENIGNO", "A cota possui Lance Fidelidade e não pode ser processada."
+            return "ERRO_BENIGNO", "A cota possui Lance Fidelidade e não pode ser processada.", None
 
         log_separator()
         logging.info("[TIPO] Determinando tipo de lance pelo TAB ativo...")
@@ -793,7 +868,7 @@ def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
             if find_element(
                 driver, *ServopaLanceLocators.LANCE_EMBUTIDO_OPTIONS_CONTAINER, timeout=1.5
             ):
-                return "ERRO_BENIGNO", "Escolher Ofertar Com ou Sem Embutido"
+                return "ERRO_BENIGNO", "Escolher Ofertar Com ou Sem Embutido", None
 
             logging.info("Preenchendo percentual e descontar carta...")
             ok_percent = False
@@ -811,7 +886,7 @@ def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
                     os.path.join(LANCES_BASE_DIR, consultor, "Erros"),
                     f"ERRO-{cota_info['original'].replace(',', '-')}-preencher-percentual",
                 )
-                return "ERRO_CRITICO", "Falha ao preencher o campo Percentual do Lance Livre."
+                return "ERRO_CRITICO", "Falha ao preencher o campo Percentual do Lance Livre.", None
 
             el_desc = find_element(
                 driver, *ServopaLanceLocators.LANCE_LIVRE_DESCONTAR_INPUT, timeout=3
@@ -824,7 +899,7 @@ def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
                     os.path.join(LANCES_BASE_DIR, consultor, "Erros"),
                     f"ERRO-{cota_info['original'].replace(',', '-')}-preencher-descontar",
                 )
-                return "ERRO_CRITICO", "Falha ao preencher o campo 'Descontar da Carta'."
+                return "ERRO_CRITICO", "Falha ao preencher o campo 'Descontar da Carta'.", None
         else:
             logging.info("[TIPO] TAB ativo: Lance Fixo. Sem campos adicionais.")
 
@@ -855,7 +930,7 @@ def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
             logging.info("Sinais de mudança pós-simulação não apareceram; prosseguindo.")
 
         if find_element(driver, *ServopaLanceLocators.PROTOCOLO_ANTERIOR_INPUT, timeout=3):
-            return "ERRO_BENIGNO", "Lance já realizado (protocolo anterior encontrado)."
+            return "ERRO_BENIGNO", "Lance já realizado (protocolo anterior encontrado).", None
 
         log_separator()
         logging.info("[REGISTRO] Registrando lance...")
@@ -883,6 +958,13 @@ def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
             raise Exception("Falha ao acionar 'Registrar'.")
 
         quick_pdf = aguardar_pdf_aparecer(download_dir or "", timeout=3)
+
+        if not quick_pdf:
+            # Em vez de baixar sozinho, o site pode ter aberto o comprovante no
+            # visualizador de PDF interno do Firefox. Detecta e clica em "Salvar".
+            if tratar_visualizador_pdf_se_necessario(driver, timeout=4):
+                quick_pdf = aguardar_pdf_aparecer(download_dir or "", timeout=5)
+
         if not quick_pdf:
             try:
                 WebDriverWait(driver, 3).until(
@@ -898,7 +980,7 @@ def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
                     [ServopaLanceLocators.MODAL_OK_BUTTON, ServopaLanceLocators.MODAL_OK_BUTTON_BY_TEXT],
                     timeout_each=2,
                 )
-                return "ERRO_BENIGNO", f"Bloqueio de assembleia / modal: {modal_text}"
+                return "ERRO_BENIGNO", f"Bloqueio de assembleia / modal: {modal_text}", None
             except TimeoutException:
                 pass
 
@@ -907,10 +989,12 @@ def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
         nome_cliente = (nome_cliente_el.text if nome_cliente_el else "Desconhecido").strip()
         nome_cliente_sanitizado = sanitizar_nome_arquivo(nome_cliente)
         novo_nome = f"LANCE- {nome_cliente_sanitizado} {grupo}.{cota}-{digito}.pdf"
-        caminho_destino = os.path.join(LANCES_BASE_DIR, consultor, novo_nome)
+        pasta_consultor = os.path.join(LANCES_BASE_DIR, consultor)
+        os.makedirs(pasta_consultor, exist_ok=True)
+        caminho_destino = os.path.join(pasta_consultor, novo_nome)
         shutil.move(os.path.join(download_dir or "", pdf_filename), caminho_destino)
         logging.info(f"[SUCESSO] PDF salvo: {caminho_destino}")
-        return "SUCESSO", "Lance registrado e PDF salvo com sucesso."
+        return "SUCESSO", "Lance registrado e PDF salvo com sucesso.", caminho_destino
 
     except Exception as e:
         error_message = f"{type(e).__name__}: {e}"
@@ -923,7 +1007,58 @@ def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
             os.path.join(LANCES_BASE_DIR, consultor, "Erros"),
             f"ERRO-{cota_info['original'].replace(',', '-')}",
         )
-        return "ERRO_CRITICO", error_message
+        return "ERRO_CRITICO", error_message, None
+
+
+# ---------------------------------------------------------------------------
+# Log consolidado de erros (erros_lances.txt)
+# ---------------------------------------------------------------------------
+
+
+def _resolver_caminho_erros_file() -> str:
+    caminho = Path(ERROS_FILE)
+    if not caminho.is_absolute():
+        # Raiz do monorepo (um nível acima de backend/), não a raiz do backend.
+        caminho = (_BASE_DIR.parent / caminho).resolve()
+    return str(caminho)
+
+
+def salvar_log_erros(consultor: str, erros: list) -> None:
+    """Registra, de forma organizada, os lances que deram erro numa execução.
+
+    `erros` é uma lista de dicts: {"cota": str, "status": str, "mensagem": str|None}.
+    Cada execução gera um bloco delimitado por linhas de "=", contendo o
+    consultor, data/hora e todas as cotas com erro daquela execução.
+    Não escreve nada se a lista estiver vazia (execução sem erros).
+    """
+    if not erros:
+        return
+
+    caminho = _resolver_caminho_erros_file()
+    agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    separador = "=" * 70
+
+    linhas = [
+        separador,
+        f"Consultor: {consultor}",
+        f"Data/Hora: {agora}",
+        f"Total de cotas com erro: {len(erros)}",
+        "-" * 70,
+    ]
+    for item in erros:
+        linhas.append(f"Cota: {item.get('cota', '(desconhecida)')}")
+        linhas.append(f"  Status : {item.get('status', '(desconhecido)')}")
+        linhas.append(f"  Motivo : {item.get('mensagem') or '(sem detalhes)'}")
+        linhas.append("")
+    linhas.append(separador)
+    linhas.append("")
+
+    try:
+        with open(caminho, "a", encoding="utf-8") as f:
+            f.write("\n".join(linhas) + "\n")
+        logging.info(f"[LOG ERROS] {len(erros)} erro(s) registrado(s) em: {caminho}")
+    except Exception as e:
+        logging.error(f"[LOG ERROS] Falha ao gravar '{caminho}': {e}")
 
 
 # ---------------------------------------------------------------------------

@@ -180,3 +180,11 @@ class ServopaLanceLocators:
     # ── Opções de lance embutido ─────────────────────────────────────────────
 
     LANCE_EMBUTIDO_OPTIONS_CONTAINER = (By.ID, "lansetxt")
+
+    # ── Visualizador de PDF interno do Firefox (PDF.js) ─────────────────────
+    # Após "Registrar", o site pode abrir o comprovante direto no visualizador
+    # (em vez de baixar sozinho). Esse é o botão "Salvar" da barra de
+    # ferramentas do PDF.js — dispara o download normal do navegador.
+    PDF_VIEWER_DOWNLOAD_BUTTON = (By.ID, "downloadButton")
+    # Marcador de que a página atual é o visualizador PDF.js (barra de ferramentas)
+    PDF_VIEWER_TOOLBAR = (By.ID, "toolbarViewerRight")
