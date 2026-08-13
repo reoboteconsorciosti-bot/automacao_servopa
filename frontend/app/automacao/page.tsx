@@ -1,6 +1,9 @@
 import { AutomationView } from '@/components/automation/automation-view'
-import { mockPdfs } from '@/lib/mock-data'
+import { getPdfs } from '@/services/automation-service'
 
-export default function AutomacaoPage() {
-  return <AutomationView pdfs={mockPdfs} />
+export const dynamic = 'force-dynamic'
+
+export default async function AutomacaoPage() {
+  const pdfs = await getPdfs().catch(() => [])
+  return <AutomationView pdfs={pdfs} />
 }

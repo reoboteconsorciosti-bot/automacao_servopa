@@ -1,77 +1,14 @@
-'use client'
-
-import * as React from 'react'
 import { MonitorPlay, WifiOff } from 'lucide-react'
-import { API_URL } from '@/lib/api-client'
 import type { AutomationStatusValue } from '@/types'
 
 interface LiveViewProps {
   status: AutomationStatusValue
+  frame: string | null
+  connected: boolean
 }
 
-type LiveMessage =
-  | { type: 'frame'; image: string }
-  | { type: 'status'; status: 'idle' | 'unavailable' }
-
-/** Deriva a URL do WebSocket a partir da API_URL (http -> ws, https -> wss). */
-function buildLiveViewUrl(): string {
-  const wsBase = API_URL.replace(/^http/, 'ws')
-  return `${wsBase}/automation/live`
-}
-
-export function LiveView({ status }: LiveViewProps) {
+export function LiveView({ status, frame, connected }: LiveViewProps) {
   const isRunning = status === 'running'
-  const [frame, setFrame] = React.useState<string | null>(null)
-  const [connected, setConnected] = React.useState(false)
-
-  React.useEffect(() => {
-    if (!isRunning) {
-      setFrame(null)
-      return
-    }
-
-    let socket: WebSocket | null = null
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-    let cancelled = false
-
-    function connect() {
-      socket = new WebSocket(buildLiveViewUrl())
-
-      socket.onopen = () => setConnected(true)
-
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data) as LiveMessage
-          if (data.type === 'frame') {
-            setFrame(`data:image/png;base64,${data.image}`)
-          } else if (data.type === 'status' && data.status === 'idle') {
-            setFrame(null)
-          }
-        } catch {
-          // ignora mensagens inesperadas
-        }
-      }
-
-      socket.onclose = () => {
-        setConnected(false)
-        if (!cancelled) {
-          reconnectTimer = setTimeout(connect, 2000)
-        }
-      }
-
-      socket.onerror = () => {
-        socket?.close()
-      }
-    }
-
-    connect()
-
-    return () => {
-      cancelled = true
-      if (reconnectTimer) clearTimeout(reconnectTimer)
-      socket?.close()
-    }
-  }, [isRunning])
 
   return (
     <div className="relative flex aspect-video w-full flex-col items-center justify-center gap-4 overflow-hidden rounded-lg border border-dashed border-border bg-muted/40 p-6 text-center">

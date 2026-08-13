@@ -3,13 +3,15 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import * as React from 'react'
-import { Bot, LogOut, UserRound, Users } from 'lucide-react'
+import { AlertTriangle, Bot, History, LogOut, UserRound, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { User } from '@/types'
 
 const navItems = [
   { href: '/usuarios', label: 'Usuários', icon: Users },
   { href: '/automacao', label: 'Automação', icon: Bot },
+  { href: '/erros-lances', label: 'Erros Lances', icon: AlertTriangle },
+  { href: '/historico', label: 'Histórico', icon: History },
 ]
 
 const STORAGE_KEY = 'servopa.user'

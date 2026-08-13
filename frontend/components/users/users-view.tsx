@@ -139,7 +139,6 @@ export function UsersView({ initialUsers }: UsersViewProps) {
               <TableRow className="hover:bg-transparent">
                 <TableHead>Nome</TableHead>
                 <TableHead>E-mail</TableHead>
-                <TableHead>CPF</TableHead>
                 <TableHead>Cadastro</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>

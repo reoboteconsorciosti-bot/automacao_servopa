@@ -27,8 +27,25 @@ export interface BidQuota {
 
 export interface AutomationConfig {
   consultantName: string
+  userName?: string
+  userEmail?: string
   /** Lista de cotas e seus respectivos lances. */
   bids: BidQuota[]
+}
+
+export interface AutomationHistoryItem {
+  id: string
+  executedBy: {
+    id?: string | number
+    name: string
+    email: string
+  }
+  consultantName: string
+  quotasCount: number
+  quotasSummary: string
+  createdAt: string
+  status: AutomationStatusValue
+  pdfFilename?: string | null
 }
 
 export interface GeneratedPdf {
@@ -37,6 +54,36 @@ export interface GeneratedPdf {
   consultantName: string
   createdAt: string
   url: string
+}
+
+/** Status de processamento de uma cota individual durante a execução. */
+export type QuotaProgressStatus =
+  | 'pendente'
+  | 'processando'
+  | 'SUCESSO'
+  | 'ERRO_BENIGNO'
+  | 'ERRO_CRITICO'
+  | 'invalido'
+
+export interface QuotaProgressItem {
+  quota: string
+  status: QuotaProgressStatus
+  message?: string | null
+}
+
+/** Um erro individual de cota dentro de um bloco de execução do erros_lances.txt. */
+export interface ErroLanceItem {
+  cota: string
+  status: string
+  motivo: string
+}
+
+/** Um bloco de execução (delimitado por "====") do erros_lances.txt. */
+export interface ErroLanceBloco {
+  consultant: string
+  dateTime: string
+  total: number
+  errors: ErroLanceItem[]
 }
 
 export interface LoginRequest {
