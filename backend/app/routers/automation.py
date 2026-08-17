@@ -214,8 +214,15 @@ def start_automation(
     config: AutomationConfigSchema,
     background_tasks: BackgroundTasks,
 ) -> Dict[str, Any]:
-    global _current_history_id, _current_progress
+    global _current_history_id, _current_progress, _current_final_status
     print(f"[AUTOMAÇÃO] Solicitação recebida para o consultor: {config.consultantName}")
+
+    # Reseta o resultado da execução anterior IMEDIATAMENTE (antes do navegador
+    # sequer começar a abrir em background). Sem isso, /status e /live continuam
+    # reportando o status final da execução passada ("finished"/"error"/"idle")
+    # durante a janela em que _current_driver ainda é None — fazendo o frontend
+    # achar que a automação já terminou assim que ela é iniciada.
+    _current_final_status = "running"
 
     user_name = config.userName or config.consultantName
     user_email = config.userEmail or f"{user_name.lower().replace(' ', '.')}@servopa.com.br"
