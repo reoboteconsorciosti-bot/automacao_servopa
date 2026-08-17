@@ -1,4 +1,4 @@
-import { readFile } from 'fs/promises'
+import { readFile, unlink } from 'fs/promises'
 import path from 'path'
 import type { ErroLanceBloco, ErroLanceItem } from '@/types'
 
@@ -7,12 +7,13 @@ import type { ErroLanceBloco, ErroLanceItem } from '@/types'
  * na raiz do monorepo, um nível acima de `frontend/`. Em `next dev`/`next start`,
  * `process.cwd()` aponta para `frontend/`, então subimos um nível.
  */
+const CANDIDATOS = [
+  path.join(process.cwd(), '..', 'erros_lances.txt'),
+  path.join(process.cwd(), 'erros_lances.txt'),
+]
+
 export async function readErrosLancesContent(): Promise<string | null> {
-  const candidatos = [
-    path.join(process.cwd(), '..', 'erros_lances.txt'),
-    path.join(process.cwd(), 'erros_lances.txt'),
-  ]
-  for (const candidato of candidatos) {
+  for (const candidato of CANDIDATOS) {
     try {
       return await readFile(candidato, 'utf-8')
     } catch {
@@ -20,6 +21,20 @@ export async function readErrosLancesContent(): Promise<string | null> {
     }
   }
   return null
+}
+
+/** Apaga o arquivo erros_lances.txt (limpa todo o histórico de erros de uma vez). */
+export async function deleteErrosLancesFile(): Promise<boolean> {
+  let deletedAny = false
+  for (const candidato of CANDIDATOS) {
+    try {
+      await unlink(candidato)
+      deletedAny = true
+    } catch {
+      continue
+    }
+  }
+  return deletedAny
 }
 
 /**

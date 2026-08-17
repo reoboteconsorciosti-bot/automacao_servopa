@@ -48,7 +48,7 @@ function buildLiveViewUrl(): string {
 
 type LiveMessage =
   | { type: 'frame'; image: string }
-  | { type: 'status'; status: 'idle' | 'finished' | 'error' | 'unavailable' }
+  | { type: 'status'; status: 'idle' | 'running' | 'finished' | 'error' | 'unavailable' }
   | { type: 'progress'; items: QuotaProgressItem[] }
 
 interface AutomationViewProps {

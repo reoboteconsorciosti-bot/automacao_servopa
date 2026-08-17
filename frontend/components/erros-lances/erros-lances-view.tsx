@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { AlertTriangle, Download, FileWarning, Loader2, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Download, FileWarning, Loader2, RefreshCw, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,6 +26,7 @@ export function ErrosLancesView() {
   const [blocos, setBlocos] = React.useState<ErroLanceBloco[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
+  const [deleting, setDeleting] = React.useState(false)
 
   const loadErros = React.useCallback(async () => {
     setLoading(true)
@@ -50,6 +51,29 @@ export function ErrosLancesView() {
   React.useEffect(() => {
     void loadErros()
   }, [loadErros])
+
+  async function handleDeleteAll() {
+    if (
+      !window.confirm(
+        'Excluir todos os erros de lances registrados? Essa ação apaga o arquivo erros_lances.txt e não pode ser desfeita.',
+      )
+    ) {
+      return
+    }
+    setDeleting(true)
+    try {
+      const response = await fetch('/api/erros-lances', { method: 'DELETE' })
+      if (!response.ok) {
+        throw new Error(`Erro ${response.status} ao excluir erros de lances.`)
+      }
+      setBlocos([])
+    } catch (err) {
+      console.error('Erro ao excluir erros_lances.txt:', err)
+      window.alert('Não foi possível excluir os erros de lances. Tente novamente.')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const totalErros = React.useMemo(
     () => blocos.reduce((acc, b) => acc + b.errors.length, 0),
@@ -78,6 +102,20 @@ export function ErrosLancesView() {
           >
             <Download className="size-4" />
             Baixar TXT
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDeleteAll}
+            disabled={deleting || blocos.length === 0}
+            className="gap-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          >
+            {deleting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Trash2 className="size-4" />
+            )}
+            Excluir todos
           </Button>
         </div>
       </div>
