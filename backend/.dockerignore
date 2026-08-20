@@ -1,0 +1,36 @@
+# Segredos e ambiente — nunca vão para a imagem
+.env
+.env.local
+.env.*.local
+
+# Ambientes virtuais / cache Python
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Driver e artefatos do Windows — não usados no container Linux
+drivers/
+
+# Dados/artefatos gerados localmente (produção usa o volume /data)
+Downloads/
+Lances/
+erros_lances.txt
+automacao.log
+uvicorn_startup.log
+uvicorn_startup_err.log
+
+# Git / IDE / tooling de desenvolvimento
+.git/
+.gitignore
+.vscode/
+.idea/
+pyrightconfig.json
+pyrefly.json
+
+# Docs que não afetam a imagem
+README.md

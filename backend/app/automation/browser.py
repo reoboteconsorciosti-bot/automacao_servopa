@@ -2,22 +2,33 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv  # type: ignore
 from selenium import webdriver  # type: ignore
+from selenium.common.exceptions import WebDriverException  # type: ignore
 from selenium.webdriver.firefox.service import Service  # type: ignore
 from selenium.webdriver.firefox.options import Options as FirefoxOptions  # type: ignore
 
 # Caminho base do backend (diretório pai de 'app')
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Carrega as variáveis do arquivo .env no backend
+# Carrega as variáveis do arquivo .env no backend (em produção/Docker, variáveis
+# já injetadas pelo ambiente — ex.: EasyPanel — têm prioridade e não são
+# sobrescritas por load_dotenv, que só preenche o que ainda não está definido).
 load_dotenv(BASE_DIR / ".env")
 load_dotenv()
 
 
-# Locais padrão comuns do Firefox no Windows (usados se FIREFOX_BINARY_PATH não for especificado no .env)
+# Locais padrão do Firefox por sistema operacional, usados como fallback quando
+# FIREFOX_BINARY_PATH não é definido no .env/ambiente. Em produção (Docker/Linux)
+# o Dockerfile já define FIREFOX_BINARY_PATH explicitamente; esta lista serve como
+# rede de segurança para dev local e outros ambientes Linux não containerizados.
 DEFAULT_FIREFOX_PATHS = [
+    # Windows
     Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "Mozilla Firefox" / "firefox.exe",
     Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Mozilla Firefox" / "firefox.exe",
     Path(os.environ.get("LOCALAPPDATA", "")) / "Mozilla Firefox" / "firefox.exe",
+    # Linux (Debian/Ubuntu instalam como firefox-esr; algumas distros usam firefox)
+    Path("/usr/bin/firefox-esr"),
+    Path("/usr/bin/firefox"),
+    Path("/usr/local/bin/firefox"),
 ]
 
 
@@ -92,38 +103,152 @@ def create_browser() -> webdriver.Firefox:
         if not profile_path.is_absolute():
             profile_path = (BASE_DIR / profile_path).resolve()
 
-        if profile_path.exists():
-            # Verifica se o perfil está em uso (presença de parent.lock no Windows)
+        if not profile_path.exists():
+            # Primeira execução com um volume persistente novo/vazio (ex.: /data/firefox-profile
+            # recém-montado no EasyPanel): cria o diretório em vez de descartar a configuração —
+            # o Firefox inicializa um perfil válido nele no primeiro uso.
+            try:
+                profile_path.mkdir(parents=True, exist_ok=True)
+                print(f"[AUTOMAÇÃO] Diretório de perfil criado (primeira execução): {profile_path}")
+            except OSError as e:
+                print(f"[AUTOMAÇÃO AVISO] Não foi possível criar o diretório de perfil ({e}). Usando perfil isolado.")
+                profile_path = None  # type: ignore[assignment]
+
+        if profile_path is not None:
+            # Verifica se o perfil está em uso (presença de parent.lock, criado pelo Firefox)
             lock_file = profile_path / "parent.lock"
             if lock_file.exists():
                 print(
                     f"[AUTOMAÇÃO AVISO] O perfil '{profile_path.name}' está em uso pelo Firefox. "
                     "Para evitar recusa de conexão, abrindo em um perfil novo isolado."
                 )
+            elif not os.access(profile_path, os.W_OK):
+                print(
+                    f"[AUTOMAÇÃO AVISO] Sem permissão de escrita no perfil '{profile_path.name}'. "
+                    "Abrindo em um perfil novo isolado."
+                )
             else:
                 options.profile = str(profile_path)
                 use_profile = True
-        else:
-            print(f"[AUTOMAÇÃO AVISO] Diretório de perfil não encontrado: {profile_path}")
+
+    # Checagens de pré-voo: falhar cedo com mensagem clara, em vez de deixar o
+    # Selenium/GeckoDriver lançar um erro genérico difícil de diagnosticar.
+    if not geckodriver_path.exists():
+        raise RuntimeError(
+            f"GeckoDriver não encontrado em '{geckodriver_path}'. Verifique a variável "
+            "GECKODRIVER_PATH (em produção, o Dockerfile já define /usr/bin/geckodriver)."
+        )
+    if not options.binary_location:
+        raise RuntimeError(
+            "Executável do Firefox não encontrado. Defina FIREFOX_BINARY_PATH ou instale o "
+            "Firefox em um dos caminhos padrão do sistema (em produção, o Dockerfile já "
+            "define /usr/bin/firefox-esr)."
+        )
 
     service = Service(executable_path=str(geckodriver_path))
 
     try:
         driver = webdriver.Firefox(service=service, options=options)
         return driver
-    except Exception as exc:
-        # Se falhou usando perfil, tenta sem o perfil como fallback automático
+    except WebDriverException as exc:
+        # Se falhou usando perfil, tenta sem o perfil como fallback automático — cobre casos
+        # como perfil corrompido ou incompatível que não foram detectados nas checagens acima.
         if use_profile:
-            print(f"[AUTOMAÇÃO AVISO] Falha ao abrir com o perfil configurado. Tentando abrir perfil isolado...")
+            print("[AUTOMAÇÃO AVISO] Falha ao abrir com o perfil configurado. Tentando abrir perfil isolado...")
             fallback_options = FirefoxOptions()
             _apply_download_preferences(fallback_options)
             if headless_env:
                 fallback_options.add_argument("--headless")
             if options.binary_location:
                 fallback_options.binary_location = options.binary_location
-            driver = webdriver.Firefox(service=service, options=fallback_options)
-            return driver
-        raise exc
+            try:
+                driver = webdriver.Firefox(service=service, options=fallback_options)
+                return driver
+            except WebDriverException as fallback_exc:
+                raise RuntimeError(
+                    f"Falha ao iniciar o WebDriver mesmo com perfil isolado: {fallback_exc}"
+                ) from fallback_exc
+
+        mensagem = str(exc).lower()
+        if "permission denied" in mensagem:
+            raise RuntimeError(f"Permissão negada ao iniciar o Firefox/GeckoDriver: {exc}") from exc
+        if "timed out" in mensagem or "timeout" in mensagem:
+            raise RuntimeError(f"Timeout ao iniciar o WebDriver (Firefox demorou demais para responder): {exc}") from exc
+        if "unexpectedly closed" in mensagem or "process unexpectedly closed" in mensagem:
+            raise RuntimeError(f"O Firefox encerrou inesperadamente ao iniciar: {exc}") from exc
+        raise RuntimeError(f"Falha ao iniciar o WebDriver: {exc}") from exc
+
+
+def check_automation_environment() -> dict:
+    """Verifica os pré-requisitos da automação (Firefox, GeckoDriver, diretórios de
+    perfil/download) sem abrir nenhum navegador — só inspeciona filesystem e env vars.
+
+    Usado pelo endpoint de health-check (`GET /api/automation/health`). Retorna apenas
+    booleanos: nunca inclua caminhos, variáveis de ambiente ou outros detalhes do
+    sistema no retorno, pois este resultado pode ser exposto publicamente.
+    """
+    geckodriver_env = os.getenv("GECKODRIVER_PATH", "./drivers/geckodriver.exe").strip()
+    firefox_binary_env = os.getenv("FIREFOX_BINARY_PATH", "").strip()
+    firefox_profile_env = os.getenv("FIREFOX_PROFILE_PATH", "").strip()
+    download_dir_env = os.getenv("DOWNLOAD_DIR", "").strip()
+
+    geckodriver_path = Path(geckodriver_env)
+    if not geckodriver_path.is_absolute():
+        geckodriver_path = (BASE_DIR / geckodriver_path).resolve()
+    geckodriver_ok = geckodriver_path.exists() and os.access(geckodriver_path, os.X_OK)
+
+    firefox_binary_path = None
+    if firefox_binary_env:
+        binary_path = Path(firefox_binary_env)
+        if not binary_path.is_absolute():
+            binary_path = (BASE_DIR / binary_path).resolve()
+        if binary_path.exists():
+            firefox_binary_path = binary_path
+    else:
+        for default_path in DEFAULT_FIREFOX_PATHS:
+            if default_path.exists():
+                firefox_binary_path = default_path
+                break
+    firefox_ok = firefox_binary_path is not None
+
+    profile_configured = bool(firefox_profile_env)
+    profile_writable = True
+    if firefox_profile_env:
+        profile_path = Path(firefox_profile_env)
+        if not profile_path.is_absolute():
+            profile_path = (BASE_DIR / profile_path).resolve()
+        target = profile_path if profile_path.exists() else profile_path.parent
+        profile_writable = target.exists() and os.access(target, os.W_OK)
+
+    download_dir_configured = bool(download_dir_env)
+    download_dir_writable = False
+    if download_dir_env:
+        download_dir = Path(download_dir_env)
+        if not download_dir.is_absolute():
+            download_dir = (BASE_DIR / download_dir).resolve()
+        try:
+            download_dir.mkdir(parents=True, exist_ok=True)
+            download_dir_writable = os.access(download_dir, os.W_OK)
+        except OSError:
+            download_dir_writable = False
+
+    ready = (
+        geckodriver_ok
+        and firefox_ok
+        and download_dir_configured
+        and download_dir_writable
+        and (profile_writable if profile_configured else True)
+    )
+
+    return {
+        "ready": ready,
+        "geckodriverFound": geckodriver_ok,
+        "firefoxFound": firefox_ok,
+        "profileConfigured": profile_configured,
+        "profileWritable": profile_writable,
+        "downloadDirConfigured": download_dir_configured,
+        "downloadDirWritable": download_dir_writable,
+    }
 
 
 if __name__ == "__main__":

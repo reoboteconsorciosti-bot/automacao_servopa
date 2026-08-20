@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
-from app.automation.browser import create_browser
+from app.automation.browser import check_automation_environment, create_browser
 from app.automation.engine import login, run_automation_for_cota, salvar_log_erros
 from app.database import engine, Base, SessionLocal
 from app.models.automation_history import AutomationHistory
@@ -328,6 +328,19 @@ def get_automation_status() -> Dict[str, Any]:
     return {
         "status": status,
         "message": _STATUS_MESSAGES.get(status, _STATUS_MESSAGES["idle"]),
+        "updatedAt": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/health")
+def automation_health() -> Dict[str, Any]:
+    """Verifica se o ambiente de automação (Firefox/GeckoDriver/diretórios) está pronto
+    para uma execução, sem abrir nenhum navegador. Não expõe caminhos do sistema —
+    apenas booleanos — então pode ser consultado livremente (ex.: monitoramento/deploy)."""
+    checks = check_automation_environment()
+    return {
+        "ready": checks["ready"],
+        "checks": {k: v for k, v in checks.items() if k != "ready"},
         "updatedAt": datetime.now(timezone.utc).isoformat(),
     }
 
