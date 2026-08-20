@@ -16,6 +16,11 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   const url = `${API_URL}${safePath}`
 
   const response = await fetch(url, {
+    // Necessário para o cookie de sessão HttpOnly (definido em /api/auth/login)
+    // ser enviado/recebido nas chamadas — sem isso o navegador não anexa o
+    // cookie em requisições cross-origin (frontend e backend em portas/domínios
+    // diferentes), mesmo com o backend permitindo credentials no CORS.
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...options?.headers,

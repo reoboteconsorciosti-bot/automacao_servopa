@@ -96,3 +96,9 @@ export interface LoginResponse {
   message: string
   user?: User | null
 }
+
+/** Resposta de GET /api/auth/me — quem está logado, segundo o cookie de sessão HttpOnly. */
+export interface SessionResponse {
+  authenticated: boolean
+  user: { id: string | number; email: string; name: string } | null
+}

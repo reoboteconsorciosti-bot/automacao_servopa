@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import * as React from 'react'
 import { AlertTriangle, Bot, History, LogOut, UserRound, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { logout as logoutRequest } from '@/services/auth-service'
 import type { User } from '@/types'
 
 const navItems = [
@@ -39,7 +40,15 @@ export function Sidebar() {
     return () => window.removeEventListener('storage', handler)
   }, [])
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      // Limpa o cookie de sessão HttpOnly no backend — sem isso, ele continua
+      // válido mesmo depois de sair (o front-end não consegue apagá-lo sozinho
+      // via JavaScript, já que HttpOnly bloqueia justamente esse acesso).
+      await logoutRequest()
+    } catch {
+      // segue com o logout local mesmo se a chamada falhar (ex.: backend offline)
+    }
     try {
       localStorage.removeItem(STORAGE_KEY)
       localStorage.removeItem('servopa.authAt')
