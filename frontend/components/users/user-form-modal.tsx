@@ -28,10 +28,10 @@ export function UserFormModal({ open, onClose, onSubmit, user }: UserFormModalPr
       setForm(
         user
           ? {
-              name: user.name,
-              email: user.email,
-              password: '',
-            }
+            name: user.name,
+            email: user.email,
+            password: '',
+          }
           : emptyForm,
       )
     }
@@ -98,7 +98,9 @@ export function UserFormModal({ open, onClose, onSubmit, user }: UserFormModalPr
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit">{user ? 'Salvar alterações' : 'Cadastrar'}</Button>
+          <Button type="submit">
+            {user ? 'Salvar alterações' : 'Cadastrar'}
+          </Button>
         </div>
       </form>
     </Modal>

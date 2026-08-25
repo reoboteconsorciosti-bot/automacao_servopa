@@ -6,6 +6,25 @@ const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 export const API_URL = RAW_API_URL.endsWith('/') ? RAW_API_URL.slice(0, -1) : RAW_API_URL
 
 /**
+ * Traduz mensagens de validação comuns do Pydantic (inglês → português).
+ */
+function translateValidationMessage(msg: string): string {
+  const translations: [RegExp, string][] = [
+    [/String should have at least (\d+) characters?/i, 'Mínimo $1 caracteres'],
+    [/String should have at most (\d+) characters?/i, 'Máximo $1 caracteres'],
+    [/value is not a valid email address/i, 'E-mail inválido'],
+    [/Field required/i, 'Campo obrigatório'],
+    [/Input should be a valid string/i, 'Valor deve ser um texto válido'],
+  ]
+  for (const [pattern, replacement] of translations) {
+    if (pattern.test(msg)) {
+      return msg.replace(pattern, replacement)
+    }
+  }
+  return msg
+}
+
+/**
  * Wrapper simples em torno do fetch para padronizar as chamadas à API.
  * - Remove barras duplicadas na URL final
  * - Trata respostas 204 No Content (DELETE, etc.) sem tentar parsear JSON
@@ -45,6 +64,8 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
         detail = text
       }
     }
+    // Traduz mensagens de validação comuns do Pydantic (inglês → português)
+    detail = translateValidationMessage(detail)
     throw new Error(`Erro na requisição ${response.status}: ${detail}`)
   }
 
