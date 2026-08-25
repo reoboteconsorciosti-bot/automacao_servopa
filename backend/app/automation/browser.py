@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from dotenv import load_dotenv  # type: ignore
 from selenium import webdriver  # type: ignore
@@ -213,6 +214,7 @@ def check_automation_environment() -> dict:
 
     profile_configured = bool(firefox_profile_env)
     profile_writable = True
+    profile_path = None
     if firefox_profile_env:
         profile_path = Path(firefox_profile_env)
         if not profile_path.is_absolute():
@@ -240,6 +242,31 @@ def check_automation_environment() -> dict:
         and (profile_writable if profile_configured else True)
     )
 
+    # Marcador de persistência real (não apenas "gravável agora"): na primeira
+    # chamada, grava um timestamp num arquivo dentro do volume persistente. Se
+    # o volume estiver montado de verdade (ex.: /data no EasyPanel), esse
+    # timestamp permanece o MESMO entre deploys — se aparecer sempre próximo
+    # do horário atual a cada chamada após um redeploy, o volume não está
+    # persistindo, só existe na camada descartável do container.
+    persistence_marker_since = None
+    marker_root = profile_path.parent if profile_path is not None else None
+    if marker_root is None and download_dir_env:
+        marker_root = Path(download_dir_env)
+        if not marker_root.is_absolute():
+            marker_root = (BASE_DIR / marker_root).resolve()
+        marker_root = marker_root.parent
+    if marker_root is not None:
+        try:
+            marker_root.mkdir(parents=True, exist_ok=True)
+            marker_path = marker_root / ".persistence-marker"
+            if marker_path.exists():
+                persistence_marker_since = marker_path.read_text().strip()
+            else:
+                persistence_marker_since = datetime.now(timezone.utc).isoformat()
+                marker_path.write_text(persistence_marker_since)
+        except OSError:
+            persistence_marker_since = None
+
     return {
         "ready": ready,
         "geckodriverFound": geckodriver_ok,
@@ -248,6 +275,7 @@ def check_automation_environment() -> dict:
         "profileWritable": profile_writable,
         "downloadDirConfigured": download_dir_configured,
         "downloadDirWritable": download_dir_writable,
+        "persistenceMarkerSince": persistence_marker_since,
     }
 
 

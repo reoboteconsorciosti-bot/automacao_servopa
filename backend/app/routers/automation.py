@@ -336,7 +336,8 @@ def get_automation_status() -> Dict[str, Any]:
 def automation_health() -> Dict[str, Any]:
     """Verifica se o ambiente de automação (Firefox/GeckoDriver/diretórios) está pronto
     para uma execução, sem abrir nenhum navegador. Não expõe caminhos do sistema —
-    apenas booleanos — então pode ser consultado livremente (ex.: monitoramento/deploy)."""
+    só booleanos e um timestamp de marcador de persistência — então pode ser
+    consultado livremente (ex.: monitoramento/deploy)."""
     checks = check_automation_environment()
     return {
         "ready": checks["ready"],
