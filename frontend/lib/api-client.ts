@@ -1,8 +1,16 @@
 /**
  * Base URL da API REST (backend desenvolvido separadamente).
- * Configurada via variável de ambiente NEXT_PUBLIC_API_URL.
+ * Configurada via variável de ambiente NEXT_PUBLIC_API_URL (definida em BUILD
+ * TIME, não em runtime — precisa ser passada como build-arg no Dockerfile).
+ *
+ * Usa `||` (não `??`) de propósito: se a variável vier como string vazia ""
+ * (não apenas ausente/undefined), cair no fallback é o comportamento certo.
+ * Sem isso, `API_URL` vira "" e toda chamada em apiFetch() vira uma URL
+ * relativa (ex.: "/api/auth/login") — o navegador então acerta o domínio do
+ * PRÓPRIO frontend em vez do backend, e o erro que aparece é um 404 do Next.js
+ * (confuso: parece que a rota não existe, mas na verdade é o domínio errado).
  */
-const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 export const API_URL = RAW_API_URL.endsWith('/') ? RAW_API_URL.slice(0, -1) : RAW_API_URL
 
 /**
