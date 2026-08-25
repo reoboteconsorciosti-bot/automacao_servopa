@@ -31,6 +31,14 @@ if not DATABASE_URL:
         "DATABASE_URL não configurada. Defina esta variável no arquivo .env."
     )
 
+# Normaliza o esquema antigo "postgres://" (comum em serviços de banco
+# gerenciados, ex.: Heroku/Railway/EasyPanel) para "postgresql://". O
+# SQLAlchemy 2.x removeu o dialeto "postgres" e quebra com
+# NoSuchModuleError: Can't load plugin: sqlalchemy.dialects:postgres
+# se a URL vier nesse formato antigo.
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = "postgresql://" + DATABASE_URL[len("postgres://"):]
+
 
 def _build_engine() -> Engine:
     return create_engine(
