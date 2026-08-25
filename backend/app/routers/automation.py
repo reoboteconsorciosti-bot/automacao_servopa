@@ -1,5 +1,6 @@
 import asyncio
 import os
+import threading
 from datetime import datetime, timezone
 import logging
 from typing import Any, Dict, List, Optional
@@ -25,6 +26,13 @@ router = APIRouter(prefix="/api/automation", tags=["automation"])
 # Manter referência global do driver para fechar o navegador quando solicitado
 _current_driver = None
 _current_history_id = None
+# Trava explícita cobrindo toda a janela "start solicitado" -> "driver fechado".
+# _current_driver só é setado dentro da tarefa em background (depois da resposta
+# HTTP já ter voltado), então checar só _current_driver deixa uma janela de
+# corrida entre duas chamadas a /start quase simultâneas. Esta trava é marcada
+# de forma síncrona, antes da resposta ser enviada, fechando essa janela.
+_automation_lock = threading.Lock()
+_automation_running = False
 # Progresso por cota da execução em andamento — lista de
 # {"quota": str, "status": "pendente"|"processando"|"SUCESSO"|"ERRO_BENIGNO"|"ERRO_CRITICO"|"invalido", "message": str|None}
 _current_progress: List[Dict[str, Any]] = []
@@ -125,7 +133,7 @@ def _save_pdf_to_db(
 
 
 def _run_browser_automation(config: AutomationConfigSchema, history_id: Optional[int] = None):
-    global _current_driver, _current_progress, _current_final_status
+    global _current_driver, _current_progress, _current_final_status, _automation_running
     final_status = "finished"
     try:
         logger.info(f"[AUTOMAÇÃO] Criando e abrindo o Firefox para o consultor: {config.consultantName}")
@@ -184,6 +192,11 @@ def _run_browser_automation(config: AutomationConfigSchema, history_id: Optional
                 pass
             _current_driver = None
 
+        # Libera a trava de execução única — só agora, com o navegador já
+        # fechado, é que uma nova automação pode começar.
+        with _automation_lock:
+            _automation_running = False
+
         # Registra o resultado real desta execução para /status e /live poderem
         # informar corretamente "terminou certo" vs "terminou com erro" — sem isso
         # o frontend não tem como distinguir um crash de uma conclusão normal.
@@ -214,8 +227,28 @@ def start_automation(
     config: AutomationConfigSchema,
     background_tasks: BackgroundTasks,
 ) -> Dict[str, Any]:
-    global _current_history_id, _current_progress, _current_final_status
+    global _current_history_id, _current_progress, _current_final_status, _automation_running
     print(f"[AUTOMAÇÃO] Solicitação recebida para o consultor: {config.consultantName}")
+
+    # Bloqueia início concorrente: hoje só existe UM driver/progress globais.
+    # Sem essa trava, uma segunda chamada a /start enquanto a primeira ainda
+    # está rodando sobrescreve _current_driver e _current_progress no meio da
+    # execução anterior — cruzando cotas/navegador entre as duas automações e
+    # fazendo a primeira perder PDFs silenciosamente (já aconteceu em produção).
+    # A trava é marcada aqui, de forma síncrona e atômica, ANTES da resposta
+    # HTTP voltar — _current_driver só seria setado depois, dentro da tarefa em
+    # background, o que deixaria uma janela de corrida entre chamadas quase
+    # simultâneas se dependêssemos só dele.
+    with _automation_lock:
+        if _automation_running:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Já existe uma automação em execução no momento. "
+                    "Aguarde ela terminar ou clique em 'Parar' antes de iniciar outra."
+                ),
+            )
+        _automation_running = True
 
     # Reseta o resultado da execução anterior IMEDIATAMENTE (antes do navegador
     # sequer começar a abrir em background). Sem isso, /status e /live continuam
@@ -283,6 +316,12 @@ def start_automation(
 def stop_automation() -> Dict[str, Any]:
     global _current_driver, _current_history_id, _current_final_status
     print("[AUTOMAÇÃO] Solicitação recebida para fechar o navegador e parar a automação...")
+    # Nota: _automation_running (a trava de execução única) NÃO é liberada
+    # aqui — só quit() é chamado no driver, o que sinaliza para o loop da
+    # tarefa em background parar. Quem libera a trava é o próprio finally de
+    # _run_browser_automation, quando ela de fato terminar de desenrolar.
+    # Liberar aqui abriria uma janela pra um /start novo colidir com a tarefa
+    # em background anterior, que ainda pode estar no meio de uma chamada Selenium.
     if _current_driver is not None:
         try:
             _current_driver.quit()

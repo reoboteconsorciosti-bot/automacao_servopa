@@ -62,6 +62,7 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
   const [sessionUser, setSessionUser] = React.useState<{ name: string; email: string } | null>(null)
   const [quotasText, setQuotasText] = React.useState('')
   const [status, setStatus] = React.useState<AutomationStatusValue>('idle')
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Estado do WebSocket de acompanhamento ao vivo (frames do navegador + checklist de cotas)
@@ -187,6 +188,7 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
 
   async function handleStart() {
     if (!consultantName.trim() || status === 'running' || !hasValidQuotas) return
+    setErrorMessage(null)
     setStatus('running')
     setProgress(
       parsedQuotas.map((q) => ({
@@ -211,6 +213,10 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
       }
     } catch (err) {
       console.error('Erro ao iniciar automação:', err)
+      // Mensagem do backend (ex.: 409 "já existe uma automação em execução")
+      // já vem formatada pelo apiFetch em err.message — mostra ela em vez de
+      // um "Erro" genérico, pra deixar claro o que aconteceu e o que fazer.
+      setErrorMessage(err instanceof Error ? err.message : 'Erro ao iniciar automação.')
       setStatus('error')
     }
   }
@@ -237,6 +243,7 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
     }
     setStatus('idle')
     setProgress([])
+    setErrorMessage(null)
   }
 
   return (
@@ -347,6 +354,12 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
               <div className="rounded-lg border border-border bg-muted/30 p-4">
                 <StatusIndicator status={status} />
               </div>
+
+              {status === 'error' && errorMessage && (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {errorMessage}
+                </div>
+              )}
 
               {(status === 'finished' || status === 'error') && (
                 <Button variant="outline" onClick={handleReset}>
