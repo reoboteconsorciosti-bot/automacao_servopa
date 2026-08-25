@@ -21,11 +21,17 @@ app = FastAPI(
     description="API REST de usuários e automação de lances de consórcio.",
 )
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 DEBUG = os.getenv("DEBUG", "1") == "1"
 
+# FRONTEND_URL aceita uma lista separada por vírgula, para suportar múltiplos
+# domínios apontando para o mesmo frontend ao mesmo tempo (ex.: domínio
+# próprio + subdomínio padrão do EasyPanel) sem precisar tocar no código
+# quando um domínio novo é adicionado/trocado — só ajustar a env var.
+_frontend_urls_env = os.getenv("FRONTEND_URL", "http://localhost:3000")
+_configured_origins = [url.strip() for url in _frontend_urls_env.split(",") if url.strip()]
+
 origins = [
-    FRONTEND_URL,
+    *_configured_origins,
     "http://localhost:3000",
     "https://localhost:3000",
     "http://127.0.0.1:3000",
