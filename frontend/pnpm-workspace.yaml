@@ -1,0 +1,6 @@
+# Aprova a execução do script de postinstall do msw (dependência transitiva do
+# CLI do shadcn, não usada em runtime). Sem isso, "pnpm install --frozen-lockfile"
+# falha com [ERR_PNPM_IGNORED_BUILDS] em ambientes não-interativos como o build
+# do Docker no EasyPanel.
+allowBuilds:
+  msw: true
