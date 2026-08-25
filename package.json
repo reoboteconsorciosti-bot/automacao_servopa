@@ -2,19 +2,11 @@
   "name": "consultor-automacao",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@11.9.0",
   "scripts": {
     "dev": "pnpm --filter frontend dev",
     "build": "pnpm --filter frontend build",
     "start": "pnpm --filter frontend start",
     "lint": "pnpm --filter frontend lint"
-  },
-  "pnpm": {
-    "overrides": {
-      "hono": "4.12.25"
-    }
-  },
-  "dependencies": {
-    "@prisma/client": "^6.0.0",
-    "prisma": "^6.0.0"
   }
 }
