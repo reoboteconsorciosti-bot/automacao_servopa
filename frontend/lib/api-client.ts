@@ -13,6 +13,14 @@
 const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 export const API_URL = RAW_API_URL.endsWith('/') ? RAW_API_URL.slice(0, -1) : RAW_API_URL
 
+// Log visível no console do navegador com o valor que foi de fato embutido no
+// build — útil para confirmar rapidamente (via DevTools) se um deploy novo do
+// frontend realmente pegou o NEXT_PUBLIC_API_URL certo, sem precisar caçar
+// nos chunks minificados.
+if (typeof window !== 'undefined') {
+  console.info('[api-client] API_URL configurado para:', API_URL)
+}
+
 /**
  * Traduz mensagens de validação comuns do Pydantic (inglês → português).
  */
