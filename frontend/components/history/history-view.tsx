@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { deleteAutomationHistory, getAutomationHistory } from '@/services/automation-service'
+import { formatDateBrasilia } from '@/lib/utils'
 import type { AutomationHistoryItem } from '@/types'
 
 /**
@@ -31,22 +32,6 @@ function splitQuotas(summary: string): string[] {
     .split(/,\s+/)
     .map((q) => q.trim())
     .filter(Boolean)
-}
-
-function formatDate(isoString: string): string {
-  try {
-    const d = new Date(isoString)
-    if (isNaN(d.getTime())) return isoString
-    const day = String(d.getDate()).padStart(2, '0')
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const year = d.getFullYear()
-    const hours = String(d.getHours()).padStart(2, '0')
-    const minutes = String(d.getMinutes()).padStart(2, '0')
-    const seconds = String(d.getSeconds()).padStart(2, '0')
-    return `${day}/${month}/${year} às ${hours}:${minutes}:${seconds}`
-  } catch {
-    return isoString
-  }
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -293,7 +278,7 @@ export function HistoryView() {
                         {item.consultantName || '-'}
                       </span>
                     </span>
-                    <span className="tabular-nums">{formatDate(item.createdAt)}</span>
+                    <span className="tabular-nums">{formatDateBrasilia(item.createdAt)}</span>
                   </div>
 
                   {/* Cotas: cada uma em sua própria div dentro do container do usuário */}

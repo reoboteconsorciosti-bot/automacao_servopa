@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { API_URL } from '@/lib/api-client'
 import { deletePdf } from '@/services/automation-service'
+import { formatDateBrasilia } from '@/lib/utils'
 import type { GeneratedPdf } from '@/types'
 
 function pdfUrl(pdf: GeneratedPdf, download: boolean): string {
@@ -144,7 +145,9 @@ export function PdfTable({ pdfs }: { pdfs: GeneratedPdf[] }) {
                       <FileText className="size-4 shrink-0 text-muted-foreground" />
                       <div className="flex flex-col overflow-hidden">
                         <span className="truncate text-sm font-medium">{pdf.fileName}</span>
-                        <span className="text-xs text-muted-foreground tabular-nums">{pdf.createdAt}</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {formatDateBrasilia(pdf.createdAt)}
+                        </span>
                       </div>
                     </div>
 
