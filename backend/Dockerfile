@@ -72,6 +72,7 @@ ENV FIREFOX_BINARY_PATH=/usr/bin/firefox-esr \
     FIREFOX_PROFILE_PATH=/data/firefox-profile \
     DOWNLOAD_DIR=/data/pdfs/_downloads \
     LANCES_DIR=/data/pdfs \
+    ERROS_FILE=/data/logs/erros_lances.txt \
     HEADLESS=true \
     PORT=8000 \
     MAX_CONCURRENT_AUTOMATIONS=3

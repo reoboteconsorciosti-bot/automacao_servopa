@@ -5,6 +5,8 @@ import { AlertTriangle, Download, FileWarning, Loader2, RefreshCw, Trash2 } from
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { API_URL } from '@/lib/api-client'
+import { deleteErrosLances, getErrosLances } from '@/services/erros-lances-service'
 import type { ErroLanceBloco } from '@/types'
 
 function StatusBadge({ status }: { status: string }) {
@@ -32,12 +34,7 @@ export function ErrosLancesView() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch('/api/erros-lances', { cache: 'no-store' })
-      if (!response.ok) {
-        throw new Error(`Erro ${response.status} ao buscar erros de lances.`)
-      }
-      const data = (await response.json()) as { blocos?: ErroLanceBloco[]; error?: string }
-      if (data.error) throw new Error(data.error)
+      const data = await getErrosLances()
       setBlocos(Array.isArray(data.blocos) ? data.blocos : [])
     } catch (err) {
       console.error('Erro ao buscar erros_lances.txt:', err)
@@ -62,10 +59,7 @@ export function ErrosLancesView() {
     }
     setDeleting(true)
     try {
-      const response = await fetch('/api/erros-lances', { method: 'DELETE' })
-      if (!response.ok) {
-        throw new Error(`Erro ${response.status} ao excluir erros de lances.`)
-      }
+      await deleteErrosLances()
       setBlocos([])
     } catch (err) {
       console.error('Erro ao excluir erros_lances.txt:', err)
@@ -98,7 +92,7 @@ export function ErrosLancesView() {
             disabled={blocos.length === 0}
             className="gap-2"
             nativeButton={false}
-            render={<a href="/api/erros-lances/download" download="erros_lances.txt" />}
+            render={<a href={`${API_URL}/api/erros-lances/download`} target="_blank" rel="noopener noreferrer" />}
           >
             <Download className="size-4" />
             Baixar TXT
