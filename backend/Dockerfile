@@ -73,7 +73,8 @@ ENV FIREFOX_BINARY_PATH=/usr/bin/firefox-esr \
     DOWNLOAD_DIR=/data/pdfs/_downloads \
     LANCES_DIR=/data/pdfs \
     HEADLESS=true \
-    PORT=8000
+    PORT=8000 \
+    MAX_CONCURRENT_AUTOMATIONS=3
 
 EXPOSE 8000
 

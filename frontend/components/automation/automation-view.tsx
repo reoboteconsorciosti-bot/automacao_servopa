@@ -20,7 +20,12 @@ import { QuotaChecklist } from '@/components/automation/quota-checklist'
 import { PdfTable } from '@/components/automation/pdf-table'
 import { API_URL } from '@/lib/api-client'
 import type { AutomationStatusValue, GeneratedPdf, QuotaProgressItem } from '@/types'
-import { getAutomationStatus, startAutomation, stopAutomation } from '@/services/automation-service'
+import { getActiveJobs, getAutomationStatus, startAutomation, stopAutomation } from '@/services/automation-service'
+
+// Placar de execução: uma instância deste componente/aba acompanha SÓ o job
+// que ela mesma iniciou (identificado por jobId) — o servidor pode estar
+// rodando outras automações de outros consultores/computadores ao mesmo
+// tempo, em slots separados, sem afetar esta.
 
 interface ParsedQuota {
   grupo: string
@@ -40,10 +45,12 @@ function parseQuotaLines(raw: string): ParsedQuota[] {
     .filter((q) => q.grupo && q.cota && q.digito)
 }
 
-/** Deriva a URL do WebSocket a partir da API_URL (http -> ws, https -> wss). */
-function buildLiveViewUrl(): string {
+/** Deriva a URL do WebSocket a partir da API_URL (http -> ws, https -> wss),
+ * identificando qual execução (job) acompanhar entre as que podem estar
+ * rodando ao mesmo tempo no servidor. */
+function buildLiveViewUrl(jobId: string): string {
   const wsBase = API_URL.replace(/^http/, 'ws')
-  return `${wsBase}/api/automation/live`
+  return `${wsBase}/api/automation/live?job_id=${encodeURIComponent(jobId)}`
 }
 
 type LiveMessage =
@@ -63,6 +70,10 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
   const [quotasText, setQuotasText] = React.useState('')
   const [status, setStatus] = React.useState<AutomationStatusValue>('idle')
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+  // Identifica a execução (job) que ESTA aba/sessão iniciou. O servidor pode
+  // ter outras automações rodando ao mesmo tempo em slots diferentes — sem
+  // isso, /status, /stop e o WebSocket /live não saberiam qual acompanhar.
+  const [jobId, setJobId] = React.useState<string | null>(null)
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Estado do WebSocket de acompanhamento ao vivo (frames do navegador + checklist de cotas)
@@ -94,13 +105,43 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
   const validQuotaCount = parsedQuotas.length
   const hasValidQuotas = validQuotaCount > 0
 
+  // Quantos "computadores"/slots estão ocupados agora no servidor (de todos
+  // os usuários, não só desta aba) — o servidor roda até maxConcurrentAutomations
+  // automações ao mesmo tempo, cada uma em seu próprio perfil de Firefox.
+  const [capacity, setCapacity] = React.useState<{ activeCount: number; maxConcurrentAutomations: number } | null>(
+    null,
+  )
+
+  React.useEffect(() => {
+    let cancelled = false
+    async function poll() {
+      try {
+        const result = await getActiveJobs()
+        if (!cancelled) {
+          setCapacity({
+            activeCount: result.activeCount,
+            maxConcurrentAutomations: result.maxConcurrentAutomations,
+          })
+        }
+      } catch {
+        // ignora falhas pontuais — é só um indicador informativo
+      }
+    }
+    void poll()
+    const interval = setInterval(poll, 5000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [])
+
   const [isStopping, setIsStopping] = React.useState(false)
 
   const isRunning = status === 'running'
 
   // Conecta ao WebSocket de acompanhamento enquanto a automação estiver rodando
   React.useEffect(() => {
-    if (!isRunning) {
+    if (!isRunning || !jobId) {
       setFrame(null)
       setConnected(false)
       return
@@ -111,7 +152,7 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
     let cancelled = false
 
     function connect() {
-      socket = new WebSocket(buildLiveViewUrl())
+      socket = new WebSocket(buildLiveViewUrl(jobId as string))
 
       socket.onopen = () => setConnected(true)
 
@@ -158,18 +199,18 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
       if (reconnectTimer) clearTimeout(reconnectTimer)
       socket?.close()
     }
-  }, [isRunning])
+  }, [isRunning, jobId])
 
   // Reforço independente do WebSocket: consulta /automation/status periodicamente
   // enquanto roda, garantindo que o painel não fique preso em "Executando" caso
   // a mensagem de conclusão do WebSocket se perca por algum motivo.
   React.useEffect(() => {
-    if (!isRunning) return
+    if (!isRunning || !jobId) return
 
     let cancelled = false
     const interval = setInterval(async () => {
       try {
-        const result = await getAutomationStatus()
+        const result = await getAutomationStatus(jobId)
         if (!cancelled && result.status !== 'running') {
           // Usa o status real devolvido pelo backend ("finished"/"error"/"idle"),
           // nunca assume sucesso só porque parou de rodar.
@@ -184,12 +225,13 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
       cancelled = true
       clearInterval(interval)
     }
-  }, [isRunning])
+  }, [isRunning, jobId])
 
   async function handleStart() {
     if (!consultantName.trim() || status === 'running' || !hasValidQuotas) return
     setErrorMessage(null)
     setStatus('running')
+    setJobId(null)
     setProgress(
       parsedQuotas.map((q) => ({
         quota: `${q.grupo}.${q.cota}-${q.digito}`,
@@ -211,11 +253,15 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
       if (response && response.status) {
         setStatus(response.status)
       }
+      if (response?.jobId) {
+        setJobId(response.jobId)
+      }
     } catch (err) {
       console.error('Erro ao iniciar automação:', err)
-      // Mensagem do backend (ex.: 409 "já existe uma automação em execução")
-      // já vem formatada pelo apiFetch em err.message — mostra ela em vez de
-      // um "Erro" genérico, pra deixar claro o que aconteceu e o que fazer.
+      // Mensagem do backend (ex.: 409 "todas as N automações simultâneas
+      // já estão em uso") já vem formatada pelo apiFetch em err.message —
+      // mostra ela em vez de um "Erro" genérico, pra deixar claro o que
+      // aconteceu e o que fazer (ex.: esperar um slot liberar).
       setErrorMessage(err instanceof Error ? err.message : 'Erro ao iniciar automação.')
       setStatus('error')
     }
@@ -225,7 +271,9 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
     setIsStopping(true)
     if (timerRef.current) clearTimeout(timerRef.current)
     try {
-      await stopAutomation()
+      if (jobId) {
+        await stopAutomation(jobId)
+      }
     } catch (err) {
       console.error('Erro ao parar automação:', err)
     } finally {
@@ -237,13 +285,16 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
   async function handleReset() {
     if (timerRef.current) clearTimeout(timerRef.current)
     try {
-      await stopAutomation()
+      if (jobId) {
+        await stopAutomation(jobId)
+      }
     } catch {
       // ignore
     }
     setStatus('idle')
     setProgress([])
     setErrorMessage(null)
+    setJobId(null)
   }
 
   return (
@@ -317,6 +368,12 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
             <CardHeader>
               <CardTitle>Execução</CardTitle>
               <CardDescription>Inicie a automação com as configurações acima.</CardDescription>
+              {capacity && (
+                <p className="text-xs text-muted-foreground">
+                  {capacity.activeCount} de {capacity.maxConcurrentAutomations} automações simultâneas em uso no
+                  servidor agora
+                </p>
+              )}
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               {isRunning ? (

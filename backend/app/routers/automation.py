@@ -1,10 +1,11 @@
 import asyncio
 import os
 import threading
+import uuid
 from datetime import datetime, timezone
 import logging
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 from app.automation.browser import check_automation_environment, create_browser
@@ -23,23 +24,35 @@ except Exception as _e:
 
 router = APIRouter(prefix="/api/automation", tags=["automation"])
 
-# Manter referência global do driver para fechar o navegador quando solicitado
-_current_driver = None
-_current_history_id = None
-# Trava explícita cobrindo toda a janela "start solicitado" -> "driver fechado".
-# _current_driver só é setado dentro da tarefa em background (depois da resposta
-# HTTP já ter voltado), então checar só _current_driver deixa uma janela de
-# corrida entre duas chamadas a /start quase simultâneas. Esta trava é marcada
-# de forma síncrona, antes da resposta ser enviada, fechando essa janela.
-_automation_lock = threading.Lock()
-_automation_running = False
-# Progresso por cota da execução em andamento — lista de
-# {"quota": str, "status": "pendente"|"processando"|"SUCESSO"|"ERRO_BENIGNO"|"ERRO_CRITICO"|"invalido", "message": str|None}
-_current_progress: List[Dict[str, Any]] = []
-# Resultado da última execução concluída (driver já fechado): "idle" | "finished" | "error".
-# É o que diferencia "terminou processando tudo certo" de "travou/crashou antes de terminar" —
-# sem isso, o frontend não teria como saber por que o navegador fechou.
-_current_final_status: str = "idle"
+# Quantas automações podem rodar ao mesmo tempo neste servidor. Cada uma abre
+# um Firefox headless real (CPU/RAM de verdade) — ajuste conforme a capacidade
+# do servidor via variável de ambiente, sem precisar mexer em código.
+MAX_CONCURRENT_AUTOMATIONS = int(os.getenv("MAX_CONCURRENT_AUTOMATIONS", "3"))
+
+# _jobs: um dicionário por execução em andamento (ou recém-terminada), no lugar
+# das antigas variáveis globais únicas (_current_driver etc.) — que só
+# conseguiam representar UMA automação por vez. Cada job tem seu próprio
+# driver, progresso, perfil de Firefox e pasta de download, isolados dos
+# demais. _slots controla quais dos slots 1..MAX_CONCURRENT_AUTOMATIONS estão
+# ocupados, para nunca deixar mais que o limite rodando ao mesmo tempo.
+_jobs_lock = threading.Lock()
+_jobs: Dict[str, Dict[str, Any]] = {}
+_slots: Dict[int, Optional[str]] = {i: None for i in range(1, MAX_CONCURRENT_AUTOMATIONS + 1)}
+
+
+def _slot_profile_path(slot: int) -> Optional[str]:
+    """Caminho de perfil do Firefox exclusivo deste slot (sessão/cookies isolados
+    dos outros slots). Sufixo sobre FIREFOX_PROFILE_PATH; None se não configurado
+    (create_browser cai no perfil isolado padrão nesse caso)."""
+    base = os.getenv("FIREFOX_PROFILE_PATH", "").strip()
+    return f"{base}-slot{slot}" if base else None
+
+
+def _slot_download_dir(slot: int) -> Optional[str]:
+    """Pasta de download exclusiva deste slot — evita que PDFs baixados por
+    execuções simultâneas diferentes se misturem na mesma pasta."""
+    base = os.getenv("DOWNLOAD_DIR", "").strip()
+    return f"{base}-slot{slot}" if base else None
 
 
 class BidQuotaSchema(BaseModel):
@@ -132,79 +145,89 @@ def _save_pdf_to_db(
         logger.error(f"[AUTOMAÇÃO] Erro ao salvar PDF no banco de dados: {e}", exc_info=True)
 
 
-def _run_browser_automation(config: AutomationConfigSchema, history_id: Optional[int] = None):
-    global _current_driver, _current_progress, _current_final_status, _automation_running
+def _run_browser_automation(config: AutomationConfigSchema, job_id: str, history_id: Optional[int] = None) -> None:
+    job = _jobs[job_id]
+    slot = job["slot"]
     final_status = "finished"
     try:
-        logger.info(f"[AUTOMAÇÃO] Criando e abrindo o Firefox para o consultor: {config.consultantName}")
-        _current_driver = create_browser()
+        logger.info(
+            f"[AUTOMAÇÃO][{job_id}] Criando e abrindo o Firefox (slot {slot}/{MAX_CONCURRENT_AUTOMATIONS}) "
+            f"para o consultor: {config.consultantName}"
+        )
+        driver = create_browser(
+            profile_path_override=_slot_profile_path(slot),
+            download_dir_override=_slot_download_dir(slot),
+        )
+        job["driver"] = driver
 
         # Efetua login no site do Servopa
-        logger.info("[AUTOMAÇÃO] Efetuando login no portal Servopa...")
-        login(_current_driver)
-        logger.info("[AUTOMAÇÃO] Login concluído com sucesso. Navegador visível na tela!")
+        logger.info(f"[AUTOMAÇÃO][{job_id}] Efetuando login no portal Servopa...")
+        login(driver)
+        logger.info(f"[AUTOMAÇÃO][{job_id}] Login concluído com sucesso. Navegador visível na tela!")
 
         # Processa cada cota recebida
         if config.bids:
+            progress = job["progress"]
             for idx, bid in enumerate(config.bids):
-                if _current_driver is None:
-                    logger.info("[AUTOMAÇÃO] Execução interrompida pelo usuário.")
+                if job["driver"] is None:
+                    logger.info(f"[AUTOMAÇÃO][{job_id}] Execução interrompida pelo usuário.")
                     final_status = "idle"
                     break
 
                 cota_info = _parse_cota_item(bid)
                 if not cota_info:
-                    logger.warning(f"[AUTOMAÇÃO] Cota ignorada (formato inválido): {bid}")
-                    if idx < len(_current_progress):
-                        _current_progress[idx]["status"] = "invalido"
-                        _current_progress[idx]["message"] = "Formato de cota inválido"
+                    logger.warning(f"[AUTOMAÇÃO][{job_id}] Cota ignorada (formato inválido): {bid}")
+                    if idx < len(progress):
+                        progress[idx]["status"] = "invalido"
+                        progress[idx]["message"] = "Formato de cota inválido"
                     continue
 
-                if idx < len(_current_progress):
-                    _current_progress[idx]["status"] = "processando"
+                if idx < len(progress):
+                    progress[idx]["status"] = "processando"
 
-                logger.info(f"[AUTOMAÇÃO] Processando cota: {cota_info['original']}")
+                logger.info(f"[AUTOMAÇÃO][{job_id}] Processando cota: {cota_info['original']}")
                 status, msg, pdf_path = run_automation_for_cota(
-                    _current_driver, cota_info, config.consultantName
+                    job["driver"],
+                    cota_info,
+                    config.consultantName,
+                    download_dir=_slot_download_dir(slot),
                 )
-                logger.info(f"[AUTOMAÇÃO] Resultado da cota {cota_info['original']}: {status} - {msg}")
+                logger.info(f"[AUTOMAÇÃO][{job_id}] Resultado da cota {cota_info['original']}: {status} - {msg}")
 
                 if status == "SUCESSO" and pdf_path:
                     _save_pdf_to_db(config.consultantName, cota_info["original"], pdf_path, history_id)
 
-                if idx < len(_current_progress):
-                    _current_progress[idx]["status"] = status
-                    _current_progress[idx]["message"] = msg
+                if idx < len(progress):
+                    progress[idx]["status"] = status
+                    progress[idx]["message"] = msg
 
     except Exception as e:
-        logger.error(f"[AUTOMAÇÃO ERRO] Falha durante a execução da automação: {e}", exc_info=True)
+        logger.error(f"[AUTOMAÇÃO ERRO][{job_id}] Falha durante a execução da automação: {e}", exc_info=True)
         final_status = "error"
-        if _current_driver is None:
-            logger.error("[AUTOMAÇÃO ERRO] O navegador não pôde ser iniciado.")
+        if job.get("driver") is None:
+            logger.error(f"[AUTOMAÇÃO ERRO][{job_id}] O navegador não pôde ser iniciado.")
     finally:
         # Fecha o navegador automaticamente ao final da execução (sucesso ou erro).
-        # Se o usuário já tiver chamado /stop manualmente, _current_driver já é None
+        # Se o usuário já tiver chamado /stop manualmente, job["driver"] já é None
         # nesse ponto e nada acontece aqui.
-        if _current_driver is not None:
+        driver = job.get("driver")
+        if driver is not None:
             try:
-                _current_driver.quit()
+                driver.quit()
             except Exception:
                 pass
-            _current_driver = None
+        job["driver"] = None
+        job["final_status"] = final_status
 
-        # Libera a trava de execução única — só agora, com o navegador já
-        # fechado, é que uma nova automação pode começar.
-        with _automation_lock:
-            _automation_running = False
-
-        # Registra o resultado real desta execução para /status e /live poderem
-        # informar corretamente "terminou certo" vs "terminou com erro" — sem isso
-        # o frontend não tem como distinguir um crash de uma conclusão normal.
-        _current_final_status = final_status
+        # Libera o slot — só agora, com o navegador já fechado, é que uma nova
+        # automação pode ocupar esse mesmo slot.
+        with _jobs_lock:
+            if _slots.get(slot) == job_id:
+                _slots[slot] = None
 
         erros_para_log = [
             {"cota": item.get("quota"), "status": item.get("status"), "mensagem": item.get("message")}
-            for item in _current_progress
+            for item in job["progress"]
             if item.get("status") in ("ERRO_BENIGNO", "ERRO_CRITICO", "invalido")
         ]
         if erros_para_log:
@@ -227,35 +250,46 @@ def start_automation(
     config: AutomationConfigSchema,
     background_tasks: BackgroundTasks,
 ) -> Dict[str, Any]:
-    global _current_history_id, _current_progress, _current_final_status, _automation_running
     print(f"[AUTOMAÇÃO] Solicitação recebida para o consultor: {config.consultantName}")
 
-    # Bloqueia início concorrente: hoje só existe UM driver/progress globais.
-    # Sem essa trava, uma segunda chamada a /start enquanto a primeira ainda
-    # está rodando sobrescreve _current_driver e _current_progress no meio da
-    # execução anterior — cruzando cotas/navegador entre as duas automações e
-    # fazendo a primeira perder PDFs silenciosamente (já aconteceu em produção).
-    # A trava é marcada aqui, de forma síncrona e atômica, ANTES da resposta
-    # HTTP voltar — _current_driver só seria setado depois, dentro da tarefa em
-    # background, o que deixaria uma janela de corrida entre chamadas quase
-    # simultâneas se dependêssemos só dele.
-    with _automation_lock:
-        if _automation_running:
+    # Checklist de progresso: uma entrada por cota recebida, na mesma
+    # ordem/índice de config.bids (usado por _run_browser_automation e
+    # transmitido pelo WebSocket /live para o painel).
+    progress = [
+        {
+            "quota": (_parse_cota_item(bid) or {}).get("original") or bid.quota or f"Cota {i + 1}",
+            "status": "pendente",
+            "message": None,
+        }
+        for i, bid in enumerate(config.bids or [])
+    ]
+
+    # Reserva um slot livre (1..MAX_CONCURRENT_AUTOMATIONS) de forma síncrona e
+    # atômica, ANTES da resposta HTTP voltar — fecha a mesma janela de corrida
+    # que a versão anterior (execução única) já fechava, agora generalizada
+    # para N slots: sem isso, duas chamadas a /start quase simultâneas
+    # poderiam "ganhar" o mesmo slot e cruzar navegador/progresso entre elas.
+    job_id = str(uuid.uuid4())
+    with _jobs_lock:
+        slot = next((s for s, occupant in _slots.items() if occupant is None), None)
+        if slot is None:
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    "Já existe uma automação em execução no momento. "
-                    "Aguarde ela terminar ou clique em 'Parar' antes de iniciar outra."
+                    f"Todas as {MAX_CONCURRENT_AUTOMATIONS} automações simultâneas permitidas "
+                    "neste servidor já estão em uso no momento. Aguarde uma terminar e tente de novo."
                 ),
             )
-        _automation_running = True
-
-    # Reseta o resultado da execução anterior IMEDIATAMENTE (antes do navegador
-    # sequer começar a abrir em background). Sem isso, /status e /live continuam
-    # reportando o status final da execução passada ("finished"/"error"/"idle")
-    # durante a janela em que _current_driver ainda é None — fazendo o frontend
-    # achar que a automação já terminou assim que ela é iniciada.
-    _current_final_status = "running"
+        _slots[slot] = job_id
+        _jobs[job_id] = {
+            "driver": None,
+            "progress": progress,
+            "history_id": None,
+            "final_status": "running",
+            "consultant_name": config.consultantName,
+            "slot": slot,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
 
     user_name = config.userName or config.consultantName
     user_email = config.userEmail or f"{user_name.lower().replace(' ', '.')}@servopa.com.br"
@@ -268,18 +302,6 @@ def start_automation(
                 quotas_list.append(c_info["original"])
     quotas_summary = ", ".join(quotas_list)
     quotas_count = len(quotas_list)
-
-    # Inicializa o checklist de progresso: uma entrada por cota recebida, na
-    # mesma ordem/índice de config.bids (usado por _run_browser_automation e
-    # transmitido pelo WebSocket /live para o painel).
-    _current_progress = [
-        {
-            "quota": (_parse_cota_item(bid) or {}).get("original") or bid.quota or f"Cota {i + 1}",
-            "status": "pendente",
-            "message": None,
-        }
-        for i, bid in enumerate(config.bids or [])
-    ]
 
     history_id = None
     try:
@@ -298,53 +320,62 @@ def start_automation(
         db.refresh(record)
         rec_id = getattr(record, "id", None)
         history_id = int(rec_id) if rec_id is not None else None
-        _current_history_id = history_id
+        _jobs[job_id]["history_id"] = history_id
         db.close()
     except Exception as e:
         logger.error(f"[AUTOMAÇÃO] Erro ao gravar histórico no banco de dados: {e}")
 
-    background_tasks.add_task(_run_browser_automation, config, history_id)
+    background_tasks.add_task(_run_browser_automation, config, job_id, history_id)
     return {
         "status": "running",
-        "message": "Automação iniciada com sucesso. Abrindo o navegador Firefox...",
+        "message": (
+            f"Automação iniciada com sucesso (slot {slot} de {MAX_CONCURRENT_AUTOMATIONS}). "
+            "Abrindo o navegador Firefox..."
+        ),
+        "jobId": job_id,
         "historyId": history_id,
         "updatedAt": datetime.now(timezone.utc).isoformat(),
     }
 
 
 @router.post("/stop")
-def stop_automation() -> Dict[str, Any]:
-    global _current_driver, _current_history_id, _current_final_status
-    print("[AUTOMAÇÃO] Solicitação recebida para fechar o navegador e parar a automação...")
-    # Nota: _automation_running (a trava de execução única) NÃO é liberada
-    # aqui — só quit() é chamado no driver, o que sinaliza para o loop da
-    # tarefa em background parar. Quem libera a trava é o próprio finally de
-    # _run_browser_automation, quando ela de fato terminar de desenrolar.
-    # Liberar aqui abriria uma janela pra um /start novo colidir com a tarefa
-    # em background anterior, que ainda pode estar no meio de uma chamada Selenium.
-    if _current_driver is not None:
+def stop_automation(job_id: str = Query(...)) -> Dict[str, Any]:
+    print(f"[AUTOMAÇÃO] Solicitação recebida para fechar o navegador e parar a automação (job {job_id})...")
+    job = _jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Execução não encontrada (pode já ter terminado).")
+
+    # Nota: o slot NÃO é liberado aqui — só quit() é chamado no driver, o que
+    # sinaliza para o loop da tarefa em background parar. Quem libera o slot é
+    # o próprio finally de _run_browser_automation, quando ela de fato terminar
+    # de desenrolar. Liberar aqui abriria uma janela pra um /start novo colidir
+    # com a tarefa em background anterior, que ainda pode estar no meio de uma
+    # chamada Selenium.
+    driver = job.get("driver")
+    if driver is not None:
         try:
-            _current_driver.quit()
-            print("[AUTOMAÇÃO] Navegador Firefox encerrado com sucesso.")
+            driver.quit()
+            print(f"[AUTOMAÇÃO] Navegador Firefox do job {job_id} encerrado com sucesso.")
         except Exception as e:
-            print(f"[AUTOMAÇÃO AVISO] Erro ao fechar o navegador: {e}")
+            print(f"[AUTOMAÇÃO AVISO] Erro ao fechar o navegador do job {job_id}: {e}")
         finally:
-            _current_driver = None
+            job["driver"] = None
     else:
-        print("[AUTOMAÇÃO] Nenhum navegador ativo para encerrar.")
+        print(f"[AUTOMAÇÃO] Nenhum navegador ativo para o job {job_id}.")
 
-    _current_final_status = "idle"
+    job["final_status"] = "idle"
 
-    if _current_history_id:
+    history_id = job.get("history_id")
+    if history_id:
         try:
             db = SessionLocal()
-            rec = db.query(AutomationHistory).filter(AutomationHistory.id == _current_history_id).first()
+            rec = db.query(AutomationHistory).filter(AutomationHistory.id == history_id).first()
             if rec:
                 rec.status = "idle"
                 db.commit()
             db.close()
         except Exception as ex:
-            logger.error(f"Erro ao atualizar status do histórico {_current_history_id}: {ex}")
+            logger.error(f"Erro ao atualizar status do histórico {history_id}: {ex}")
 
     return {
         "status": "idle",
@@ -362,8 +393,12 @@ _STATUS_MESSAGES = {
 
 
 @router.get("/status")
-def get_automation_status() -> Dict[str, Any]:
-    status = "running" if _current_driver is not None else _current_final_status
+def get_automation_status(job_id: Optional[str] = Query(None)) -> Dict[str, Any]:
+    job = _jobs.get(job_id) if job_id else None
+    if job is None:
+        status = "idle"
+    else:
+        status = "running" if job.get("driver") is not None else job.get("final_status", "idle")
     return {
         "status": status,
         "message": _STATUS_MESSAGES.get(status, _STATUS_MESSAGES["idle"]),
@@ -371,15 +406,38 @@ def get_automation_status() -> Dict[str, Any]:
     }
 
 
+@router.get("/jobs")
+def list_active_jobs() -> Dict[str, Any]:
+    """Lista as automações em execução agora — útil para acompanhar quantos
+    'computadores'/slots estão ocupados sem precisar abrir cada um."""
+    with _jobs_lock:
+        active = [
+            {
+                "jobId": job_id,
+                "consultantName": job["consultant_name"],
+                "slot": job["slot"],
+                "startedAt": job["created_at"],
+            }
+            for job_id, job in _jobs.items()
+            if job.get("driver") is not None
+        ]
+    return {
+        "maxConcurrentAutomations": MAX_CONCURRENT_AUTOMATIONS,
+        "activeCount": len(active),
+        "jobs": active,
+    }
+
+
 @router.get("/health")
 def automation_health() -> Dict[str, Any]:
     """Verifica se o ambiente de automação (Firefox/GeckoDriver/diretórios) está pronto
     para uma execução, sem abrir nenhum navegador. Não expõe caminhos do sistema —
-    só booleanos e um timestamp de marcador de persistência — então pode ser
-    consultado livremente (ex.: monitoramento/deploy)."""
+    só booleanos, um número e um timestamp de marcador de persistência — então
+    pode ser consultado livremente (ex.: monitoramento/deploy)."""
     checks = check_automation_environment()
     return {
         "ready": checks["ready"],
+        "maxConcurrentAutomations": MAX_CONCURRENT_AUTOMATIONS,
         "checks": {k: v for k, v in checks.items() if k != "ready"},
         "updatedAt": datetime.now(timezone.utc).isoformat(),
     }
@@ -435,29 +493,33 @@ def delete_history(history_id: int) -> None:
 
 @router.websocket("/live")
 async def automation_live_view(websocket: WebSocket) -> None:
-    """Transmite screenshots periódicas do navegador em execução para o frontend."""
+    """Transmite screenshots periódicas do navegador de UM job específico
+    (identificado por ?job_id=... na URL do WebSocket) para o frontend."""
+    job_id = websocket.query_params.get("job_id")
     await websocket.accept()
-    logger.info("[LIVE VIEW] Cliente conectado.")
+    logger.info(f"[LIVE VIEW] Cliente conectado (job_id={job_id}).")
     try:
         while True:
-            driver = _current_driver
+            job = _jobs.get(job_id) if job_id else None
+            driver = job.get("driver") if job else None
             if driver is not None:
                 try:
                     frame = await run_in_threadpool(driver.get_screenshot_as_base64)
                     await websocket.send_json({"type": "frame", "image": frame})
                 except Exception as e:
-                    logger.warning(f"[LIVE VIEW] Falha ao capturar tela: {e}")
+                    logger.warning(f"[LIVE VIEW] Falha ao capturar tela (job {job_id}): {e}")
                     await websocket.send_json({"type": "status", "status": "unavailable"})
             else:
-                # Envia o resultado real da última execução ("idle"/"finished"/"error"),
-                # não um "idle" genérico — é o que permite o frontend distinguir uma
-                # conclusão normal de um crash antes de terminar de processar as cotas.
-                await websocket.send_json({"type": "status", "status": _current_final_status})
+                # Envia o resultado real da última execução desse job
+                # ("idle"/"finished"/"error"), não um "idle" genérico — é o
+                # que permite o frontend distinguir uma conclusão normal de
+                # um crash antes de terminar de processar as cotas.
+                final_status = job.get("final_status", "idle") if job else "idle"
+                await websocket.send_json({"type": "status", "status": final_status})
 
-            if _current_progress:
-                await websocket.send_json({"type": "progress", "items": _current_progress})
+            if job and job.get("progress"):
+                await websocket.send_json({"type": "progress", "items": job["progress"]})
 
             await asyncio.sleep(1)
     except WebSocketDisconnect:
-        logger.info("[LIVE VIEW] Cliente desconectado.")
-
+        logger.info(f"[LIVE VIEW] Cliente desconectado (job_id={job_id}).")

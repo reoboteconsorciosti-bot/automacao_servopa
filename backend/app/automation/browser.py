@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 from dotenv import load_dotenv  # type: ignore
 from selenium import webdriver  # type: ignore
 from selenium.common.exceptions import WebDriverException  # type: ignore
@@ -33,11 +34,20 @@ DEFAULT_FIREFOX_PATHS = [
 ]
 
 
-def create_browser() -> webdriver.Firefox:
+def create_browser(
+    profile_path_override: Optional[str] = None,
+    download_dir_override: Optional[str] = None,
+) -> webdriver.Firefox:
     """
     Configura e inicializa a instância do WebDriver para Firefox com GeckoDriver.
 
-    Variáveis de ambiente utilizadas:
+    Parâmetros opcionais (usados para rodar várias automações ao mesmo tempo,
+    cada uma com seu próprio perfil/pasta de download — sem eles, cai no
+    comportamento de sempre, lendo FIREFOX_PROFILE_PATH/DOWNLOAD_DIR do .env):
+    - profile_path_override: sobrescreve FIREFOX_PROFILE_PATH para esta chamada.
+    - download_dir_override: sobrescreve DOWNLOAD_DIR para esta chamada.
+
+    Variáveis de ambiente utilizadas (quando os parâmetros acima não são informados):
     - GECKODRIVER_PATH: caminho relativo ou absoluto para o geckodriver.exe
     - FIREFOX_BINARY_PATH: caminho opcional para o executável do Firefox
     - FIREFOX_PROFILE_PATH: caminho opcional para o perfil do Firefox
@@ -45,8 +55,12 @@ def create_browser() -> webdriver.Firefox:
     """
     geckodriver_env = os.getenv("GECKODRIVER_PATH", "./drivers/geckodriver.exe").strip()
     firefox_binary_env = os.getenv("FIREFOX_BINARY_PATH", "").strip()
-    firefox_profile_env = os.getenv("FIREFOX_PROFILE_PATH", "").strip()
-    download_dir_env = os.getenv("DOWNLOAD_DIR", "").strip()
+    firefox_profile_env = (
+        profile_path_override if profile_path_override is not None else os.getenv("FIREFOX_PROFILE_PATH", "").strip()
+    )
+    download_dir_env = (
+        download_dir_override if download_dir_override is not None else os.getenv("DOWNLOAD_DIR", "").strip()
+    )
     headless_env = os.getenv("HEADLESS", "false").strip().lower() == "true"
 
     # Resolve o caminho do GeckoDriver

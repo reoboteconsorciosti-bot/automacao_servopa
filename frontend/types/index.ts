@@ -14,6 +14,25 @@ export interface AutomationStatus {
   status: AutomationStatusValue
   message?: string
   updatedAt: string
+  /** Presente só na resposta de POST /api/automation/start — identifica esta
+   * execução específica entre as várias que podem rodar ao mesmo tempo no
+   * servidor (uma por slot, até maxConcurrentAutomations). */
+  jobId?: string
+  historyId?: number | null
+}
+
+/** Resposta de GET /api/automation/jobs — quais execuções estão rodando agora. */
+export interface ActiveJob {
+  jobId: string
+  consultantName: string
+  slot: number
+  startedAt: string
+}
+
+export interface ActiveJobsResponse {
+  maxConcurrentAutomations: number
+  activeCount: number
+  jobs: ActiveJob[]
 }
 
 /** Uma cota de lance informada pelo consultor. */
