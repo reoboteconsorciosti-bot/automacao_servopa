@@ -45,6 +45,29 @@ function parseQuotaLines(raw: string): ParsedQuota[] {
     .filter((q) => q.grupo && q.cota && q.digito)
 }
 
+/** Encontra linhas repetidas (cota digitada mais de uma vez) na lista de
+ * cotas — compara o texto exato de cada linha, não os campos já separados,
+ * então pega duplicata mesmo com espaçamento diferente após o trim. */
+function encontrarCotasRepetidas(texto: string): string[] {
+  const linhas = texto
+    .split(/\r?\n/)
+    .map((linha) => linha.trim())
+    .filter((linha) => linha !== '')
+
+  const cotasJaVistas = new Set<string>()
+  const cotasRepetidas = new Set<string>()
+
+  for (const cota of linhas) {
+    if (cotasJaVistas.has(cota)) {
+      cotasRepetidas.add(cota)
+    } else {
+      cotasJaVistas.add(cota)
+    }
+  }
+
+  return Array.from(cotasRepetidas)
+}
+
 /** Deriva a URL do WebSocket a partir da API_URL (http -> ws, https -> wss),
  * identificando qual execução (job) acompanhar entre as que podem estar
  * rodando ao mesmo tempo no servidor. */
@@ -104,6 +127,7 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
   const parsedQuotas = React.useMemo(() => parseQuotaLines(quotasText), [quotasText])
   const validQuotaCount = parsedQuotas.length
   const hasValidQuotas = validQuotaCount > 0
+  const cotasRepetidas = React.useMemo(() => encontrarCotasRepetidas(quotasText), [quotasText])
 
   // Quantos "computadores"/slots estão ocupados agora no servidor (de todos
   // os usuários, não só desta aba) — o servidor roda até maxConcurrentAutomations
@@ -357,6 +381,13 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
                     {validQuotaCount}
                   </span>
                 </p>
+
+                {cotasRepetidas.length > 0 && (
+                  <p className="text-sm font-medium text-destructive">
+                    Cota{cotasRepetidas.length === 1 ? '' : 's'} repetida
+                    {cotasRepetidas.length === 1 ? '' : 's'} na lista: {cotasRepetidas.join(', ')}
+                  </p>
+                )}
               </div>
 
               {/* Checklist de progresso por cota (aparece quando há uma execução em andamento ou recém-concluída) */}
