@@ -128,6 +128,22 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
   const validQuotaCount = parsedQuotas.length
   const hasValidQuotas = validQuotaCount > 0
   const cotasRepetidas = React.useMemo(() => encontrarCotasRepetidas(quotasText), [quotasText])
+  const temCotasRepetidas = cotasRepetidas.length > 0
+
+  // Um <textarea> nativo não colore trechos individuais do texto (só cor
+  // uniforme) — para destacar as linhas repetidas em amarelo mantendo o
+  // campo editável, sobrepomos um <div> com as mesmas linhas atrás do
+  // textarea (que fica com o texto transparente, só o cursor/seleção
+  // visíveis) e sincronizamos o scroll entre os dois via ref.
+  const quotasTextareaRef = React.useRef<HTMLTextAreaElement>(null)
+  const quotasOverlayRef = React.useRef<HTMLDivElement>(null)
+
+  function handleQuotasScroll() {
+    if (quotasTextareaRef.current && quotasOverlayRef.current) {
+      quotasOverlayRef.current.scrollTop = quotasTextareaRef.current.scrollTop
+      quotasOverlayRef.current.scrollLeft = quotasTextareaRef.current.scrollLeft
+    }
+  }
 
   // Quantos "computadores"/slots estão ocupados agora no servidor (de todos
   // os usuários, não só desta aba) — o servidor roda até maxConcurrentAutomations
@@ -358,17 +374,43 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
                 <Label htmlFor="quotas">
                   Lista de Cotas (grupo,cota,dígito — uma por linha)
                 </Label>
-                <Textarea
-                  id="quotas"
-                  name="quotas"
-                  value={quotasText}
-                  onChange={(e) => setQuotasText(e.target.value)}
-                  disabled={isRunning}
-                  placeholder={[
-                    '1561,1197,7',
-                    '1561,1265,5',
-                  ].join('\n')}
-                />
+                <div className="relative">
+                  {temCotasRepetidas && (
+                    <div
+                      ref={quotasOverlayRef}
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-xl border border-transparent px-4 py-3 text-sm"
+                    >
+                      {quotasText.split(/\r?\n/).map((linha, i) => (
+                        <div
+                          key={i}
+                          className={
+                            cotasRepetidas.includes(linha.trim())
+                              ? 'rounded-[3px] bg-yellow-400/40'
+                              : undefined
+                          }
+                        >
+                          {/* linha vazia precisa de conteúdo pra não colapsar a altura */}
+                          {linha.length > 0 ? linha : ' '}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Textarea
+                    id="quotas"
+                    name="quotas"
+                    ref={quotasTextareaRef}
+                    value={quotasText}
+                    onChange={(e) => setQuotasText(e.target.value)}
+                    onScroll={temCotasRepetidas ? handleQuotasScroll : undefined}
+                    disabled={isRunning}
+                    placeholder={[
+                      '1561,1197,7',
+                      '1561,1265,5',
+                    ].join('\n')}
+                    className={temCotasRepetidas ? 'relative bg-transparent text-transparent caret-foreground' : 'relative'}
+                  />
+                </div>
                 <p className="text-sm font-medium tabular-nums text-muted-foreground">
                   Total de Cotas Válidas:{' '}
                   <span
