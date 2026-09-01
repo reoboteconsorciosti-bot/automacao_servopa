@@ -9,6 +9,43 @@ import { API_URL } from '@/lib/api-client'
 import { deleteErrosLances, getErrosLances } from '@/services/erros-lances-service'
 import type { ErroLanceBloco } from '@/types'
 
+/** Recria o mesmo formato de bloco usado no erros_lances.txt (ver
+ * engine.py::salvar_log_erros), mas só com os dados desse card — permite
+ * baixar o erro de um consultor/execução específica sem precisar do arquivo
+ * inteiro. */
+function buildBlocoTxt(bloco: ErroLanceBloco): string {
+  const separador = '='.repeat(70)
+  const linhas = [
+    separador,
+    `Consultor: ${bloco.consultant}`,
+    `Data/Hora: ${bloco.dateTime}`,
+    `Total de cotas com erro: ${bloco.total}`,
+    '-'.repeat(70),
+  ]
+  for (const erro of bloco.errors) {
+    linhas.push(`Cota: ${erro.cota}`)
+    linhas.push(`  Status : ${erro.status}`)
+    linhas.push(`  Motivo : ${erro.motivo}`)
+    linhas.push('')
+  }
+  linhas.push(separador)
+  linhas.push('')
+  return linhas.join('\n')
+}
+
+function downloadBlocoTxt(bloco: ErroLanceBloco) {
+  const nomeArquivo = `erros_lances_${bloco.consultant.trim() || 'consultor'}_${bloco.dateTime.replace(/[\s/:]+/g, '-')}.txt`
+  const blob = new Blob([buildBlocoTxt(bloco)], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = nomeArquivo
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
 function StatusBadge({ status }: { status: string }) {
   const isCritico = status.toUpperCase().includes('CRITICO')
   return (
@@ -158,9 +195,20 @@ export function ErrosLancesView() {
                         {bloco.dateTime}
                       </span>
                     </div>
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {bloco.total} {bloco.total === 1 ? 'cota' : 'cotas'} com erro
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {bloco.total} {bloco.total === 1 ? 'cota' : 'cotas'} com erro
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => downloadBlocoTxt(bloco)}
+                      >
+                        <Download className="size-4" />
+                        Baixar
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="flex flex-col gap-2 border-t border-border/40 pt-3">
