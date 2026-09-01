@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { API_URL } from '@/lib/api-client'
+import { normalizeName } from '@/lib/utils'
 import {
   getActiveJobs,
   getAutomationStatus,
@@ -82,6 +83,12 @@ const USER_STORAGE_KEY = 'servopa.user'
 // seção pelo menu já não depende mais disso, mas continua útil pra não
 // perder o acompanhamento se o usuário der F5 durante uma execução.
 const JOB_STORAGE_KEY = 'servopa.automation.activeJob'
+// Consultores marcados como "concluído" na Checklist — o "V" só aparece
+// depois de uma confirmação manual (botão "Esse consultor foi concluído" em
+// Automação), não só por o nome ter sido digitado. Fica salvo aqui pra
+// sobreviver tanto à troca de seção quanto a um F5/fechar e abrir o painel
+// de novo.
+const CONCLUIDOS_STORAGE_KEY = 'servopa.checklist.concluidos'
 
 interface PersistedJob {
   jobId: string
@@ -127,6 +134,8 @@ interface AutomationContextValue {
   handleStart: () => Promise<void>
   handleStop: () => Promise<void>
   handleReset: () => Promise<void>
+  consultoresConcluidos: Set<string>
+  marcarConsultorConcluido: (nome: string) => void
 }
 
 const AutomationContext = React.createContext<AutomationContextValue | null>(null)
@@ -148,6 +157,39 @@ export function AutomationProvider({ children }: { children: React.ReactNode }) 
   const [connected, setConnected] = React.useState(false)
   const [progress, setProgress] = React.useState<QuotaProgressItem[]>([])
   const [isStopping, setIsStopping] = React.useState(false)
+
+  // Nomes (já normalizados) dos consultores marcados como concluídos na
+  // Checklist. Carrega do localStorage uma vez ao montar o Provider.
+  const [consultoresConcluidos, setConsultoresConcluidos] = React.useState<Set<string>>(new Set())
+
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CONCLUIDOS_STORAGE_KEY)
+      if (raw) {
+        const lista = JSON.parse(raw)
+        if (Array.isArray(lista)) {
+          setConsultoresConcluidos(new Set(lista))
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  function marcarConsultorConcluido(nome: string) {
+    const normalizado = normalizeName(nome)
+    if (!normalizado) return
+    setConsultoresConcluidos((prev) => {
+      const next = new Set(prev)
+      next.add(normalizado)
+      try {
+        localStorage.setItem(CONCLUIDOS_STORAGE_KEY, JSON.stringify(Array.from(next)))
+      } catch {
+        // ignore
+      }
+      return next
+    })
+  }
 
   // Quantos "computadores"/slots estão ocupados agora no servidor (de todos
   // os usuários, não só desta sessão) — o servidor roda até
@@ -418,6 +460,8 @@ export function AutomationProvider({ children }: { children: React.ReactNode }) 
     handleStart,
     handleStop,
     handleReset,
+    consultoresConcluidos,
+    marcarConsultorConcluido,
   }
 
   return <AutomationContext.Provider value={value}>{children}</AutomationContext.Provider>

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Play, RotateCcw, Square } from 'lucide-react'
+import { CheckCircle2, Loader2, Play, RotateCcw, Square } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import {
@@ -53,7 +53,22 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
     handleStart,
     handleStop,
     handleReset,
+    marcarConsultorConcluido,
   } = useAutomation()
+
+  // Marca o consultor como concluído na Checklist só depois de uma
+  // confirmação explícita — clicar em "não" não faz nada (o usuário pode
+  // terminar e clicar de novo mais tarde), clicar em "sim" já marca o "V".
+  function handleConsultorConcluido() {
+    const nome = consultantName.trim()
+    if (!nome) return
+    const confirmou = window.confirm(
+      `Esse consultor foi concluído?\n\n"${nome}" será marcado com "V" na Checklist.`,
+    )
+    if (confirmou) {
+      marcarConsultorConcluido(nome)
+    }
+  }
 
   // Um <textarea> nativo não colore trechos individuais do texto (só cor
   // uniforme) — para destacar as linhas repetidas em amarelo mantendo o
@@ -230,6 +245,15 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
                   Reiniciar
                 </Button>
               )}
+
+              <Button
+                variant="outline"
+                onClick={handleConsultorConcluido}
+                disabled={!consultantName.trim()}
+              >
+                <CheckCircle2 data-icon="inline-start" />
+                Esse consultor foi concluído
+              </Button>
             </CardContent>
           </Card>
         </div>

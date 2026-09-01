@@ -5,15 +5,17 @@ import { Check } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAutomation } from '@/contexts/automation-context'
-import { cn } from '@/lib/utils'
+import { cn, normalizeName } from '@/lib/utils'
 
 /**
- * Lista fixa dos consultores (abas da planilha) que a automação cobre. Marca
- * "V" ao lado de um nome assim que ele bater com o "Nome do consultor"
- * digitado na section Automação — lida direto do AutomationContext (o mesmo
- * Provider montado no AppShell que mantém o estado da automação vivo entre
- * seções), sem precisar de nenhuma chamada de API: é só front-end
- * conversando com front-end através do estado compartilhado.
+ * Lista fixa dos consultores (abas da planilha) que a automação cobre. O "V"
+ * ao lado de um nome só aparece depois de uma confirmação manual — o botão
+ * "Esse consultor foi concluído" na section Automação — não só por o nome
+ * ter sido digitado no campo. Lê `consultoresConcluidos` direto do
+ * AutomationContext (o mesmo Provider montado no AppShell que mantém o
+ * estado da automação vivo entre seções), sem precisar de nenhuma chamada de
+ * API: é só front-end conversando com front-end através do estado
+ * compartilhado.
  */
 const CONSULTORES = [
   'Antigos',
@@ -42,37 +44,28 @@ const CONSULTORES = [
   'Vinicios',
 ]
 
-/** Normaliza pra comparar sem se importar com maiúscula/minúscula, acento ou
- * espaço sobrando (ex.: "carlos " digitado deve bater com "Carlos" da lista). */
-const DIACRITICOS = /[̀-ͯ]/g
-
-function normalizar(texto: string): string {
-  return texto.trim().toLowerCase().normalize('NFD').replace(DIACRITICOS, '')
-}
-
 export function ChecklistView() {
-  const { consultantName } = useAutomation()
-  const nomeAtualNormalizado = normalizar(consultantName)
+  const { consultantName, consultoresConcluidos } = useAutomation()
+  const total = consultoresConcluidos.size
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-4 sm:p-8">
       <PageHeader
         title="Checklist"
-        description="Marca automaticamente quando o nome digitado em Automação bate com um consultor da lista."
+        description='Marca "V" quando o consultor é confirmado como concluído em Automação (botão "Esse consultor foi concluído").'
       />
 
       <Card className="overflow-hidden p-0">
         <CardHeader className="p-5">
           <CardTitle>Consultores</CardTitle>
           <CardDescription>
-            {consultantName.trim()
-              ? `Nome atual em Automação: "${consultantName.trim()}"`
-              : 'Nenhum nome digitado em Automação no momento.'}
+            {total} de {CONSULTORES.length} concluídos
+            {consultantName.trim() ? ` · em Automação agora: "${consultantName.trim()}"` : ''}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-0 p-0">
           {CONSULTORES.map((nome, idx) => {
-            const marcado = nomeAtualNormalizado.length > 0 && normalizar(nome) === nomeAtualNormalizado
+            const marcado = consultoresConcluidos.has(normalizeName(nome))
             return (
               <div
                 key={nome}
@@ -92,7 +85,7 @@ export function ChecklistView() {
                       ? 'border-primary bg-primary text-primary-foreground'
                       : 'border-border text-transparent',
                   )}
-                  aria-label={marcado ? `${nome} selecionado` : undefined}
+                  aria-label={marcado ? `${nome} concluído` : undefined}
                 >
                   <Check className="size-4" />
                 </span>

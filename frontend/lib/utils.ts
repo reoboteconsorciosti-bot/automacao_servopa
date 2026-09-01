@@ -5,6 +5,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+const DIACRITICOS = /[̀-ͯ]/g
+
+/** Normaliza um nome pra comparar sem se importar com maiúscula/minúscula,
+ * acento ou espaço sobrando (ex.: "carlos " digitado deve bater com "Carlos"
+ * da lista de consultores). Usado pra casar o nome digitado em Automação com
+ * a lista fixa da Checklist. */
+export function normalizeName(texto: string): string {
+  return texto.trim().toLowerCase().normalize('NFD').replace(DIACRITICOS, '')
+}
+
 /**
  * Formata uma string de data/hora ISO (ex.: "2026-08-27T17:58:38.034+00:00",
  * como vem do backend em UTC) para o horário de Brasília (America/Sao_Paulo,
