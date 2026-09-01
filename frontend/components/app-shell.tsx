@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import * as React from 'react'
 import { Sidebar } from '@/components/sidebar'
+import { AutomationProvider } from '@/contexts/automation-context'
 
 const STORAGE_KEY = 'servopa.user'
 
@@ -47,9 +48,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 overflow-x-hidden">{children}</main>
-    </div>
+    <AutomationProvider>
+      <div className="flex min-h-screen">
+        <Sidebar />
+        <main className="flex-1 overflow-x-hidden">{children}</main>
+      </div>
+    </AutomationProvider>
   )
 }
