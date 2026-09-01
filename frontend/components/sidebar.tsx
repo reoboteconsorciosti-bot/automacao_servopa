@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import * as React from 'react'
-import { AlertTriangle, Bot, History, LogOut, UserRound, Users } from 'lucide-react'
+import { AlertTriangle, Bot, History, ListChecks, LogOut, UserRound, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { logout as logoutRequest } from '@/services/auth-service'
 import type { User } from '@/types'
@@ -11,6 +11,7 @@ import type { User } from '@/types'
 const navItems = [
   { href: '/usuarios', label: 'Usuários', icon: Users },
   { href: '/automacao', label: 'Automação', icon: Bot },
+  { href: '/checklist', label: 'Checklist', icon: ListChecks },
   { href: '/erros-lances', label: 'Erros Lances', icon: AlertTriangle },
   { href: '/historico', label: 'Histórico', icon: History },
 ]
