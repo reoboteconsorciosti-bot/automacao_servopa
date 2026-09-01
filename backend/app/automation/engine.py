@@ -129,6 +129,10 @@ SERVOPA_LANCES_URL = os.getenv(
     "SERVOPA_LANCES_URL",
     "https://www.consorcioservopa.com.br/vendas/lances",
 )
+SERVOPA_BUSCAR_URL = os.getenv(
+    "SERVOPA_BUSCAR_URL",
+    "https://www.consorcioservopa.com.br/vendas/buscar",
+)
 ERROS_FILE = os.getenv("ERROS_FILE", "erros_lances.txt")
 LANCE_LIVRE_PERCENTUAL = os.getenv("LANCE_LIVRE_PERCENTUAL", "40")
 LANCE_LIVRE_DESCONTAR_CARTA = os.getenv("LANCE_LIVRE_DESCONTAR_CARTA", "30")
@@ -628,6 +632,25 @@ def _navegar_e_buscar_cota(driver, cota_info):
     cota = cota_info["cota"]
     digito = cota_info["digito"]
 
+    def _preencher_campos_busca() -> bool:
+        """Tenta preencher grupo/cota/dígito na página atual. Retorna False (sem
+        lançar exceção) se algum campo não aparecer — quem chama decide se tenta
+        de novo ou desiste."""
+        for loc, val in [
+            (ServopaGroupLocators.GROUP_INPUT, grupo),
+            (ServopaGroupLocators.COTA_INPUT, cota),
+            (ServopaGroupLocators.DIGITO_INPUT, digito),
+        ]:
+            el = find_element(driver, *loc)
+            if el is None:
+                logging.warning(f"Campo de busca não encontrado: {loc}")
+                return False
+            driver.execute_script("arguments[0].value = '';", el)
+            time.sleep(0.1)
+            el.send_keys(val)
+            time.sleep(0.3)
+        return True
+
     if "vendas/buscar" not in driver.current_url:
         logging.info("Navegando para a tela de busca pelo menu...")
         if not click_element(driver, By.XPATH, "//a[contains(., 'Ferramentas Admin')]"):
@@ -646,18 +669,23 @@ def _navegar_e_buscar_cota(driver, cota_info):
     logging.info(f"Preenchendo busca — Grupo: {grupo}, Cota: {cota}, Dígito: {digito}")
     time.sleep(0.3)
 
-    for loc, val in [
-        (ServopaGroupLocators.GROUP_INPUT, grupo),
-        (ServopaGroupLocators.COTA_INPUT, cota),
-        (ServopaGroupLocators.DIGITO_INPUT, digito),
-    ]:
-        el = find_element(driver, *loc)
-        if el is None:
-            raise Exception(f"Campo de busca não encontrado: {loc}")
-        driver.execute_script("arguments[0].value = '';", el)
-        time.sleep(0.1)
-        el.send_keys(val)
-        time.sleep(0.3)
+    if not _preencher_campos_busca():
+        # O clique de menu "sucede" (dispara via JS) mesmo que a navegação real
+        # não tenha completado — ex.: se a cota anterior deixou o driver num
+        # estado ruim (aba extra, overlay preso) sob lentidão do container.
+        # Sem essa recuperação, TODA cota seguinte falhava do mesmo jeito, em
+        # cascata, porque nunca se tentava sair desse estado. Força uma
+        # navegação de verdade (GET direto na URL, não clique de menu/SPA) e
+        # tenta preencher de novo, uma vez, antes de desistir.
+        logging.warning(
+            "Campos de busca não apareceram após reaproveitar/clicar no menu — "
+            "forçando navegação direta pra tela de busca e tentando de novo."
+        )
+        driver.get(SERVOPA_BUSCAR_URL)
+        remover_loading(driver)
+        time.sleep(0.5)
+        if not _preencher_campos_busca():
+            raise Exception("Campo de busca não encontrado mesmo após navegação direta.")
 
     debug_nav_dir = os.path.join(LANCES_BASE_DIR, "_DEBUG_NAV")
     cota_tag = (
@@ -773,6 +801,21 @@ def run_automation_for_cota(driver, cota_info, consultor, download_dir=None):
     log_banner(f"COTA {grupo}.{cota}-{digito}")
 
     try:
+        # Defensivo: fecha abas extras deixadas por uma tentativa anterior que
+        # falhou no meio do fluxo (ex.: a aba do visualizador de PDF que abre
+        # ao registrar o lance, se algo interrompeu o fechamento normal dela).
+        # Sem isso, o driver podia ficar preso numa aba errada e todas as
+        # cotas seguintes falhavam em cascata por não achar nenhum elemento.
+        if len(driver.window_handles) > 1:
+            principal = driver.window_handles[0]
+            for handle in driver.window_handles[1:]:
+                try:
+                    driver.switch_to.window(handle)
+                    driver.close()
+                except Exception as e:
+                    logging.warning(f"Falha ao fechar aba extra órfã: {e}")
+            driver.switch_to.window(principal)
+
         _navegar_e_buscar_cota(driver, cota_info)
 
         logging.info("Procurando tabela de resultados...")
