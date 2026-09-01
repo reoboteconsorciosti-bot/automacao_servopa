@@ -94,7 +94,17 @@ def create_browser(
     # Configuração explícita de Headless (padrão: False / Visível)
     if headless_env:
         options.add_argument("--headless")
-        print("[AUTOMAÇÃO] Modo Headless ativado.")
+        # Sem isso, o Firefox headless abre com um viewport pequeno/inconsistente
+        # (não existe janela real de desktop pra herdar o tamanho). Sob um
+        # viewport pequeno, o CSS responsivo do site pode trocar de layout —
+        # escondendo/reposicionando o botão "Registrar" real por trás de um
+        # elemento que ainda existe no DOM (o clique via JS "funciona", não
+        # lança exceção, mas não aciona nada) — sintoma batendo com o que só
+        # acontece em produção (headless) e nunca em desenvolvimento (navegador
+        # visível, tamanho de janela normal de desktop).
+        options.add_argument("--width=1920")
+        options.add_argument("--height=1080")
+        print("[AUTOMAÇÃO] Modo Headless ativado (viewport 1920x1080).")
     else:
         print("[AUTOMAÇÃO] Modo VISÍVEL ativado (Headless: False). O navegador abrirá na tela.")
 
@@ -174,6 +184,8 @@ def create_browser(
             _apply_download_preferences(fallback_options)
             if headless_env:
                 fallback_options.add_argument("--headless")
+                fallback_options.add_argument("--width=1920")
+                fallback_options.add_argument("--height=1080")
             if options.binary_location:
                 fallback_options.binary_location = options.binary_location
             try:
