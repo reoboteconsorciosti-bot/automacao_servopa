@@ -86,6 +86,19 @@ interface AutomationViewProps {
 }
 
 const STORAGE_KEY = 'servopa.user'
+// Guarda a execução (job) que esta aba iniciou, para sobreviver a troca de
+// página/reload. Sem isso, o componente é desmontado ao navegar pro menu
+// (Erros de Lances, Histórico etc.) e todo o estado em memória (jobId,
+// progresso, nome do consultor, cotas digitadas) se perde — mesmo que a
+// automação continue rodando de verdade no servidor. Ao montar de novo, lê
+// esse valor e confirma com o backend se o job ainda existe/está rodando.
+const JOB_STORAGE_KEY = 'servopa.automation.activeJob'
+
+interface PersistedJob {
+  jobId: string
+  consultantName: string
+  quotasText: string
+}
 
 export function AutomationView({ pdfs }: AutomationViewProps) {
   const [consultantName, setConsultantName] = React.useState('')
@@ -121,6 +134,54 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
     }
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [])
+
+  // Ao montar (primeira vez OU de novo após voltar de outra página): checa se
+  // esta aba tinha uma execução em andamento salva e, se o backend confirmar
+  // que ela ainda existe, retoma o acompanhamento — reconecta o WebSocket e
+  // volta a mostrar "Executando" (ou o resultado final, se já tiver
+  // terminado enquanto o usuário estava em outra tela) em vez de resetar
+  // silenciosamente para "Iniciar Automação".
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function restoreJob() {
+      let saved: PersistedJob | null = null
+      try {
+        const raw = localStorage.getItem(JOB_STORAGE_KEY)
+        saved = raw ? (JSON.parse(raw) as PersistedJob) : null
+      } catch {
+        saved = null
+      }
+      if (!saved?.jobId) return
+
+      // Restaura os campos do formulário imediatamente — não depende de rede.
+      setConsultantName(saved.consultantName || '')
+      setQuotasText(saved.quotasText || '')
+
+      try {
+        const result = await getAutomationStatus(saved.jobId)
+        if (cancelled) return
+
+        if (result.status === 'idle') {
+          // Backend não reconhece mais esse job (ex.: reiniciou desde então) —
+          // nada real pra retomar, então descarta o registro salvo.
+          localStorage.removeItem(JOB_STORAGE_KEY)
+          return
+        }
+
+        setJobId(saved.jobId)
+        setStatus(result.status)
+      } catch {
+        // Falha pontual de rede ao checar — mantém o registro salvo (tenta
+        // de novo numa próxima montagem) sem travar a tela em branco.
+      }
+    }
+
+    void restoreJob()
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -267,6 +328,22 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
     }
   }, [isRunning, jobId])
 
+  function persistJob(job: PersistedJob) {
+    try {
+      localStorage.setItem(JOB_STORAGE_KEY, JSON.stringify(job))
+    } catch {
+      // ignore — pior caso, só não sobrevive a uma troca de página
+    }
+  }
+
+  function clearPersistedJob() {
+    try {
+      localStorage.removeItem(JOB_STORAGE_KEY)
+    } catch {
+      // ignore
+    }
+  }
+
   async function handleStart() {
     if (!consultantName.trim() || status === 'running' || !hasValidQuotas) return
     setErrorMessage(null)
@@ -295,6 +372,7 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
       }
       if (response?.jobId) {
         setJobId(response.jobId)
+        persistJob({ jobId: response.jobId, consultantName, quotasText })
       }
     } catch (err) {
       console.error('Erro ao iniciar automação:', err)
@@ -319,6 +397,7 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
     } finally {
       setStatus('idle')
       setIsStopping(false)
+      clearPersistedJob()
     }
   }
 
@@ -335,6 +414,7 @@ export function AutomationView({ pdfs }: AutomationViewProps) {
     setProgress([])
     setErrorMessage(null)
     setJobId(null)
+    clearPersistedJob()
   }
 
   return (
