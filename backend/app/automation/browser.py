@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+import urllib3  # type: ignore
 from dotenv import load_dotenv  # type: ignore
 from selenium import webdriver  # type: ignore
 from selenium.common.exceptions import WebDriverException  # type: ignore
@@ -32,6 +33,33 @@ DEFAULT_FIREFOX_PATHS = [
     Path("/usr/bin/firefox"),
     Path("/usr/local/bin/firefox"),
 ]
+
+
+def _aumentar_pool_http(driver: "webdriver.Firefox", maxsize: int = 10) -> None:
+    """O Selenium 4.x usa por padrão um pool HTTP (urllib3) de UMA conexão
+    entre o processo Python e o GeckoDriver local. Isso é suficiente enquanto
+    só uma "linha de execução" fala com o driver por vez — mas a Visualização
+    ao Vivo (WebSocket /live, que tira um screenshot por segundo do mesmo
+    driver numa thread separada, rodando em paralelo com a automação
+    principal) faz duas threads disputarem essa única conexão ao mesmo tempo.
+    Resultado: "Connection pool is full, discarding connection" nos logs, e o
+    urllib3 tem que abrir uma conexão TCP nova a cada comando em vez de
+    reaproveitar — bem mais lento, e só acontece em produção porque só lá a
+    Visualização ao Vivo fica aberta de verdade durante os testes (é o que
+    explica o "funciona rápido em localhost, trava em produção").
+
+    A API pública do Selenium 4.46 não expõe esse tamanho de pool direto no
+    construtor do Firefox(), então ajusta depois de criado. Cercado de
+    try/except porque mexe num atributo interno (`_conn`) que pode mudar em
+    versões futuras — se falhar, a automação segue funcionando, só sem esse
+    reforço de performance.
+    """
+    try:
+        executor = driver.command_executor
+        if getattr(executor, "_conn", None) is not None:
+            executor._conn = urllib3.PoolManager(maxsize=maxsize)  # type: ignore[union-attr]
+    except Exception as e:
+        print(f"[AUTOMAÇÃO AVISO] Não foi possível aumentar o pool de conexões HTTP: {e}")
 
 
 def create_browser(
@@ -174,6 +202,7 @@ def create_browser(
 
     try:
         driver = webdriver.Firefox(service=service, options=options)
+        _aumentar_pool_http(driver)
         return driver
     except WebDriverException as exc:
         # Se falhou usando perfil, tenta sem o perfil como fallback automático — cobre casos
@@ -190,6 +219,7 @@ def create_browser(
                 fallback_options.binary_location = options.binary_location
             try:
                 driver = webdriver.Firefox(service=service, options=fallback_options)
+                _aumentar_pool_http(driver)
                 return driver
             except WebDriverException as fallback_exc:
                 raise RuntimeError(
