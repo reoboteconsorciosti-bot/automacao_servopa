@@ -75,7 +75,8 @@ ENV FIREFOX_BINARY_PATH=/usr/bin/firefox-esr \
     ERROS_FILE=/data/logs/erros_lances.txt \
     HEADLESS=true \
     PORT=8000 \
-    MAX_CONCURRENT_AUTOMATIONS=3
+    MAX_CONCURRENT_AUTOMATIONS=3 \
+    PDF_DOWNLOAD_TIMEOUT=180
 
 EXPOSE 8000
 

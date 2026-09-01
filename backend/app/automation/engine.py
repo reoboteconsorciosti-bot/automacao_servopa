@@ -132,6 +132,13 @@ SERVOPA_LANCES_URL = os.getenv(
 ERROS_FILE = os.getenv("ERROS_FILE", "erros_lances.txt")
 LANCE_LIVRE_PERCENTUAL = os.getenv("LANCE_LIVRE_PERCENTUAL", "40")
 LANCE_LIVRE_DESCONTAR_CARTA = os.getenv("LANCE_LIVRE_DESCONTAR_CARTA", "30")
+# Quanto tempo esperar o PDF aparecer/estabilizar na pasta de downloads antes
+# de desistir (ERRO_CRITICO "Nenhum PDF apareceu na pasta de downloads.").
+# Configurável porque em produção o container roda até MAX_CONCURRENT_AUTOMATIONS
+# automações ao mesmo tempo disputando poucas vCPUs — sob essa carga o Firefox
+# pode demorar bem mais que em desenvolvimento local (uma automação, máquina
+# ociosa) pra gerar/baixar o PDF, mesmo quando tudo deu certo até aqui.
+PDF_DOWNLOAD_TIMEOUT = int(os.getenv("PDF_DOWNLOAD_TIMEOUT", "180"))
 GECKODRIVER_PATH = _get_normalized_path("GECKODRIVER_PATH")
 FIREFOX_PROFILE_PATH = _get_normalized_path("FIREFOX_PROFILE_PATH")
 DOWNLOAD_DIR = _get_normalized_path("DOWNLOAD_DIR")
@@ -323,7 +330,7 @@ def _listar_pdfs_recursivo(download_path):
     return encontrados
 
 
-def aguardar_download_concluir(download_path, timeout=90):
+def aguardar_download_concluir(download_path, timeout=PDF_DOWNLOAD_TIMEOUT):
     """Aguarda a conclusão do download de um PDF verificando estabilidade do tamanho.
 
     Busca recursivamente dentro de `download_path`. Retorna o caminho RELATIVO
