@@ -72,7 +72,16 @@ def _parse_erros_lances(content: str) -> List[Dict[str, Any]]:
         total_match = re.search(r"Total de cotas com erro:\s*(\d+)", bloco)
 
         errors: List[Dict[str, str]] = []
-        cota_regex = re.compile(r"Cota:\s*(.+?)\s*\n\s*Status\s*:\s*(.+?)\s*\n\s*Motivo\s*:\s*(.+)")
+        # O motivo pode ocupar mais de uma linha (ex.: mensagem de erro do
+        # site com quebra de linha embutida — ver engine.py::salvar_log_erros,
+        # que grava `mensagem` como veio, sem achatar quebras de linha). Por
+        # isso usa DOTALL e captura tudo até a próxima linha em branco (que
+        # separa uma cota da outra) ou o fim do bloco, em vez de parar na
+        # primeira quebra de linha.
+        cota_regex = re.compile(
+            r"Cota:\s*(.+?)\s*\n\s*Status\s*:\s*(.+?)\s*\n\s*Motivo\s*:\s*(.+?)(?=\n\s*\n|\Z)",
+            re.DOTALL,
+        )
         for m in cota_regex.finditer(bloco):
             errors.append(
                 {

@@ -173,7 +173,9 @@ export function ErrosLancesView() {
                           <span className="font-mono text-xs text-foreground">
                             Cota: {erro.cota}
                           </span>
-                          <span className="text-xs text-muted-foreground">{erro.motivo}</span>
+                          <span className="whitespace-pre-line text-xs text-muted-foreground">
+                            {erro.motivo}
+                          </span>
                         </div>
                         <StatusBadge status={erro.status} />
                       </div>
